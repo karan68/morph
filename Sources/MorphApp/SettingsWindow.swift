@@ -85,6 +85,7 @@ struct SettingsView: View {
             }
         }
         .frame(width: 860, height: 640)
+        .tint(Color(Theme.accent))
         .foregroundColor(Color(Theme.ink))
         .font(.system(size: 13))
     }

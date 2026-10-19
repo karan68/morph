@@ -18,6 +18,13 @@ enum Snapshots {
         func item(_ n: String, dir: Bool = false) -> DraggedItem { DraggedItem(url: URL(fileURLWithPath: "/tmp/\(n)"), isDirectory: dir) }
 
         func wheel(_ name: String, mode: WheelMode, items: [DraggedItem], highlight: Int?, keyboard: Bool = false, chip: String = "4.8 MB") throws {
+            for (suffix, contrast) in [("", false), ("-contrast", true)] {
+                DisplayOptions.shared.styleOverride = contrast
+                try wheelOne(name + suffix, mode: mode, items: items, highlight: highlight, keyboard: keyboard, chip: chip)
+            }
+            DisplayOptions.shared.styleOverride = nil
+        }
+        func wheelOne(_ name: String, mode: WheelMode, items: [DraggedItem], highlight: Int?, keyboard: Bool, chip: String) throws {
             let c = WheelContent(mode: mode, targets: reg.targets(for: mode, items: items),
                                  emptyText: reg.emptyText(for: mode, items: items, keys: glyphs), thumbnail: thumb, chipText: chip, keyGlyphs: glyphs)
             let v = WheelView(content: c)

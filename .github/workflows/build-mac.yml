@@ -127,9 +127,10 @@ jobs:
           V="${{ steps.v.outputs.version }}"
           mkdir -p rel && cp vendor-out/CONFIGURE.txt vendor-out/sources/
           (cd vendor-out && zip -qr "../rel/Morph-$V-third-party-sources.zip" sources)
+          (cd dist && zip -qr "../rel/Morph-$V-ui-snapshots.zip" snapshots) || true
           gh release create "$GITHUB_REF_NAME" --prerelease --title "Morph $GITHUB_REF_NAME (friends alpha)" \
             --notes-file docs/RELEASE-NOTES.md \
-            "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip"
+            "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip" rel/Morph-$V-ui-snapshots.zip
 
   matrix-macos26:
     name: Golden matrix on macOS 26 (all 174 paths incl. AVIF output)

@@ -123,6 +123,7 @@ struct ToolChrome<Content: View>: View {
             .padding(.horizontal, 16).padding(.vertical, 12)
         }
         .background(Color(Theme.rgb(0xFCFCFF, 0.96)))
+        .tint(Color(Theme.accent))
         .foregroundColor(Color(Theme.ink))
         .font(.system(size: 13))
     }

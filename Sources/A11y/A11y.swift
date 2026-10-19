@@ -46,7 +46,9 @@ public final class DisplayOptions {
     public var onChange: [() -> Void] = []
 
     /// Solid, outlined wheel style (spec mockup 06-D) when either option is on.
-    public var highContrastStyle: Bool { reduceTransparency || increaseContrast }
+    public var highContrastStyle: Bool { styleOverride ?? (reduceTransparency || increaseContrast) }
+    /// Snapshot rendering only: force the standard (false) or high-contrast (true) wheel style.
+    public var styleOverride: Bool?
 
     private init() {
         NSWorkspace.shared.notificationCenter.addObserver(forName: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification,
