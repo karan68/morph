@@ -116,7 +116,10 @@ for f in "$OUT"/Helpers/* "$OUT"/Frameworks/*.dylib; do
   [ "$minos" = "13.0" ] || { echo "ERROR: $f minos=$minos (expected 13.0)" >&2; exit 1; }
 done
 "$OUT/Helpers/ffmpeg" -hide_banner -version | head -1
-"$OUT/Helpers/ffmpeg" -hide_banner -L | grep -i -m1 "GNU Lesser General Public License" || { echo "ERROR: FFmpeg is not LGPL" >&2; exit 1; }
+# License text wraps across lines, so join before matching.
+"$OUT/Helpers/ffmpeg" -hide_banner -L | tr '\n' ' ' | grep -q -i "GNU Lesser General Public *License" || { echo "ERROR: FFmpeg is not LGPL" >&2; exit 1; }
+if "$OUT/Helpers/ffmpeg" -hide_banner -version | grep -q -e "--enable-gpl" -e "--enable-nonfree"; then echo "ERROR: GPL/nonfree FFmpeg build" >&2; exit 1; fi
+echo "FFmpeg license: LGPL (verified)"
 "$OUT/Helpers/ffmpeg" -hide_banner -encoders 2>/dev/null | grep -E "libmp3lame|libopus|libvorbis|libvpx-vp9|libwebp |h264_videotoolbox|wmav2|wmv2|mpeg4 " 
 "$OUT/Helpers/bsdtar" --version
 ls -la "$OUT/Helpers" "$OUT/Frameworks"
