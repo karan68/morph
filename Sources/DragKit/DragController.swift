@@ -198,6 +198,10 @@ public final class DragController: NSObject, WheelViewDelegate {
         let origin = NSPoint(x: anchor.x - view.center.x, y: anchor.y - (size.height - view.center.y))
         let p = WheelPanel(contentRect: NSRect(origin: origin, size: size), keyboard: keyboard)
         p.install(view)
+        p.onResignKey = { [weak self, weak p] in
+            guard let self = self, let p = p, self.panel === p, self.session?.keyboard == true else { return }
+            self.end()
+        }
         panel = p; wheel = view
         let reduce = DisplayOptions.shared.reduceMotion
         p.alphaValue = 0
@@ -381,6 +385,12 @@ final class WheelPanel: NSPanel {
     }
     override var canBecomeKey: Bool { keyboard }
     override var canBecomeMain: Bool { false }
+    /// Keyboard mode: clicking elsewhere (losing key focus) cancels, like a menu.
+    var onResignKey: (() -> Void)?
+    override func resignKey() {
+        super.resignKey()
+        onResignKey?()
+    }
 
     func install(_ wheel: WheelView) {
         let root = NSView(frame: NSRect(origin: .zero, size: frame.size))

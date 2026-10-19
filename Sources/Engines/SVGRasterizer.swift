@@ -74,7 +74,7 @@ public final class SVGRasterizer: NSObject, WKNavigationDelegate {
     }
 
     /// width/height attributes (px or unitless), else viewBox.
-    static func intrinsicSize(_ svg: String) -> CGSize? {
+    nonisolated static func intrinsicSize(_ svg: String) -> CGSize? {
         guard let tagRange = svg.range(of: "<svg[^>]*>", options: .regularExpression) else { return nil }
         let tag = String(svg[tagRange])
         func attr(_ name: String) -> String? {
@@ -95,7 +95,7 @@ public final class SVGRasterizer: NSObject, WKNavigationDelegate {
     }
 
     /// alpha = 1 − (white − black); colour = black / alpha (premultiplied on black).
-    static func mergeAlpha(white: CGImage, black: CGImage) throws -> CGImage {
+    nonisolated static func mergeAlpha(white: CGImage, black: CGImage) throws -> CGImage {
         let w = white.width, h = white.height
         guard black.width == w, black.height == h else { return white }
         func pixels(_ img: CGImage) -> [UInt8]? {
