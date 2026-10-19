@@ -112,13 +112,29 @@ def decode_image(path, fmt):
         if rc != 0: raise RuntimeError("rsvg-convert: " + se.strip()[-200:])
         path = png
     elif fmt == "pdf":
+        # The page must render (full decode), and the content compared is the image embedded in the page:
+        # rendering applies the PDF's /Interpolate smoothing, which would measure the renderer, not the file.
         rc, so, se = sh(["pdfinfo", path])
         pages = int(re.search(r"Pages:\s+(\d+)", so).group(1)) if rc == 0 else 0
         if pages != 1: raise RuntimeError(f"pdfinfo pages={pages} {se.strip()[-120:]}")
+        size = re.search(r"Page size:\s+([\d.]+) x ([\d.]+) pts", so)
         base = os.path.join(TMP, os.path.basename(path) + ".dec")
         rc, _, se = sh(["pdftoppm", "-r", "72", "-png", "-singlefile", path, base])
         if rc != 0: raise RuntimeError("pdftoppm: " + se.strip()[-200:])
-        path = base + ".png"
+        d = tempfile.mkdtemp(dir=TMP)   # fresh dir per PDF
+        rc, lst, _ = sh(["pdfimages", "-list", path])
+        types = [l.split()[2] for l in lst.splitlines()[2:] if l.strip()]
+        rc2, _, se = sh(["pdfimages", "-png", path, os.path.join(d, "img")])
+        files = sorted(os.listdir(d))
+        if rc != 0 or rc2 != 0 or types.count("image") != 1 or len(files) != len(types):
+            raise RuntimeError(f"pdfimages: types={types} files={files}")
+        im = Image.open(os.path.join(d, files[types.index("image")])).convert("RGB"); im.load()
+        if "smask" in types:   # transparency stored as a soft mask → apply as alpha
+            mask = Image.open(os.path.join(d, files[types.index("smask")])).convert("L")
+            im = im.convert("RGBA"); im.putalpha(mask.resize(im.size))
+        if size and (round(float(size.group(1))), round(float(size.group(2)))) != im.size:
+            raise RuntimeError(f"page {size.group(1)}x{size.group(2)} pt != image {im.size}")
+        return to_rgb_on_white(im)
     im = Image.open(path)
     im.load()  # forces a full decode; raises on truncated/corrupt data
     try:
@@ -163,6 +179,24 @@ def video_frame(path, t):
     if rc != 0 or not so: raise RuntimeError("frame decode failed: " + se.decode("utf-8", "replace").strip()[-200:])
     return to_rgb_on_white(Image.open(io.BytesIO(so)))
 
+def luma(a): return 0.299 * a[..., 0] + 0.587 * a[..., 1] + 0.114 * a[..., 2]
+
+def luma_frames(path, fps, w, h, n=90):
+    vf = (f"fps={fps}," if fps else "") + f"scale={w}:{h}"
+    rc, so, se = sh(["ffmpeg", "-hide_banner", "-nostdin", "-v", "error", "-i", path, "-an", "-vf", vf, "-frames:v", str(n),
+                     "-pix_fmt", "gray", "-f", "rawvideo", "-"], binary=True)
+    if rc != 0 or not so: raise RuntimeError("frame decode failed: " + se.decode("utf-8", "replace").strip()[-200:])
+    return np.frombuffer(so, dtype=np.uint8).astype(np.float64).reshape(-1, h, w)
+
+def best_aligned(S, O, window):
+    best = (0.0, 0)
+    for k in range(-window, window + 1):
+        pairs = [(i, i + k) for i in range(2, min(len(O), len(S)) - 2) if 0 <= i + k < len(S)]
+        if not pairs: continue
+        v = float(np.mean([psnr(S[j], O[i]) for i, j in pairs]))
+        best = max(best, (v, k))
+    return best
+
 def parse_subs(path):
     t = open(path, encoding="utf-8", errors="replace").read().replace("\r\n", "\n").lstrip("\ufeff")
     cues = []
@@ -186,11 +220,18 @@ def archive_members(path, fmt):
             bad = z.testzip()
             if bad: raise RuntimeError(f"CRC error in {bad}")
             for i in z.infolist():
-                if not i.is_dir(): out[i.filename.lstrip("./")] = hashlib.sha256(z.read(i)).hexdigest()
+                if i.is_dir(): continue
+                name = i.filename.lstrip("./")
+                if (i.external_attr >> 16) & 0o170000 == 0o120000:      # symlink entry
+                    out[name] = "symlink→" + z.read(i).decode("utf-8", "replace")
+                else:
+                    out[name] = hashlib.sha256(z.read(i)).hexdigest()
     elif fmt in ("tar", "gz"):
         with tarfile.open(path, "r:gz" if fmt == "gz" else "r:") as t:
             for m in t.getmembers():
-                if m.isfile(): out[m.name.lstrip("./")] = hashlib.sha256(t.extractfile(m).read()).hexdigest()
+                name = m.name.lstrip("./")
+                if m.issym(): out[name] = "symlink→" + m.linkname
+                elif m.isfile(): out[name] = hashlib.sha256(t.extractfile(m).read()).hexdigest()
     else:
         d = tempfile.mkdtemp(dir=TMP)
         rc, _, se = sh(["bsdtar", "-x", "-f", path, "-C", d])
@@ -198,7 +239,8 @@ def archive_members(path, fmt):
         for root, _, files in os.walk(d):
             for f in files:
                 p = os.path.join(root, f)
-                if os.path.isfile(p) and not os.path.islink(p): out[os.path.relpath(p, d)] = sha(p)
+                if os.path.islink(p): out[os.path.relpath(p, d)] = "symlink→" + os.readlink(p)
+                elif os.path.isfile(p): out[os.path.relpath(p, d)] = sha(p)
     return out
 
 IMAGE = {"jpg", "png", "webp", "heic", "avif", "tiff", "bmp", "svg", "pdf"}
@@ -225,10 +267,14 @@ def verify(inp, outp, in_fmt, target):
             o = decode_image(outp, got)
             i = decode_image(inp, src_kind)
             r["decode"] = True
-            p = psnr(i, o)
-            th = 20 if in_fmt == "svg" else 28
-            r["fidelity"] = p >= th and i.shape[:2] == o.shape[:2]
-            r["metric"] = f"{o.shape[1]}x{o.shape[0]} PSNR {p:.1f} dB (≥{th})"
+            # Luma PSNR: chroma subsampling (4:2:0 in JPEG/HEIC/AVIF/WebP) dominates RGB PSNR on the saturated
+            # synthetic test pattern even for a lossless output, so brightness detail is the fair signal.
+            # Mean colour per channel catches colour shifts that luma alone would miss.
+            py = psnr(luma(i), luma(o)) if i.shape == o.shape else 0.0
+            dc = float(np.max(np.abs(i.mean((0, 1)) - o.mean((0, 1))))) if i.shape == o.shape else 255.0
+            th = 25 if in_fmt == "svg" else 35   # svg: two different renderers (WebKit vs librsvg) anti-alias differently
+            r["fidelity"] = i.shape[:2] == o.shape[:2] and py >= th and dc <= 4
+            r["metric"] = f"{o.shape[1]}x{o.shape[0]} · luma PSNR {py:.1f} dB (≥{th}) · mean colour Δ {dc:.1f} (≤4)"
         elif target in AUDIO or (target == "mp3" and in_fmt in VIDEO):
             failed, errs = full_decode_errors(outp)
             info = ffprobe(outp)
@@ -248,12 +294,19 @@ def verify(inp, outp, in_fmt, target):
             if errs: r["notes"].append(errs[0][:120])
             si = ffprobe(inp)
             do, di = float(info["format"].get("duration", 0)), float(si["format"].get("duration", 0))
-            fo, fi = video_frame(outp, 1.0), video_frame(inp, 1.0)
-            p = psnr(fi, fo)
+            sv = next(s_ for s_ in si["streams"] if s_["codec_type"] == "video")
             gif = "gif" in (in_fmt, target)
-            th, dt = (14, 0.6) if gif else (22, 0.35)
-            ok = p >= th and abs(do - di) <= dt
-            msg = f"{v['codec_name'] if v else '?'} {fo.shape[1]}x{fo.shape[0]} · frame PSNR {p:.1f} dB (≥{th}) · {do:.2f}s (src {di:.2f}s)"
+            # Compare every frame (luma), both sides resampled to the same rate when GIF (12 fps) is involved,
+            # searching a ±3-frame start offset (decoders differ by a frame at the start).
+            fps = 12 if target == "gif" else 10 if in_fmt == "gif" else None
+            w, h = int(v["width"]), int(v["height"])
+            dims_ok = (w, h) == (int(sv["width"]), int(sv["height"])) or target == "gif"
+            O, S = luma_frames(outp, fps, w, h), luma_frames(inp, fps, w, h)
+            p, k = best_aligned(S, O, 3)
+            th, dt = (25, 0.6) if gif else (35, 0.35)
+            ok = dims_ok and p >= th and abs(do - di) <= dt
+            msg = (f"{v['codec_name'] if v else '?'} {w}x{h} · {len(O)} frames, mean luma PSNR {p:.1f} dB (≥{th}, offset {k:+d}) · "
+                   f"{do:.2f}s (src {di:.2f}s)")
             has_a_in = any(s["codec_type"] == "audio" for s in si["streams"])
             if target != "gif" and has_a_in:
                 so, ro = audio_signal(outp); sa, ra = audio_signal(inp)
@@ -277,7 +330,8 @@ def verify(inp, outp, in_fmt, target):
             mi = archive_members(inp, src_kind)
             r["decode"] = len(mo) > 0
             r["fidelity"] = mo == mi
-            r["metric"] = f"{len(mo)} files, names + SHA-256 identical to source"
+            r["metric"] = (f"{len(mo)} entries, names + SHA-256 (and symlink targets) identical to source" if r["fidelity"]
+                           else f"MISMATCH out={sorted(mo)} src={sorted(mi)}")
     except Exception as e:
         r["notes"].append(f"{type(e).__name__}: {str(e)[:160]}")
     return finish(r)
