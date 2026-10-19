@@ -12,6 +12,7 @@ public struct MediaInfo {
         public let bitRate: Int?
         public let bitsPerSample: Int?
         public let sampleFormat: String?
+        public let sampleRate: Int?
         public let tags: [String: String]
     }
     public let duration: Double?
@@ -53,7 +54,7 @@ public enum FFmpeg {
             MediaInfo.Stream(type: s["codec_type"] as? String ?? "", codec: s["codec_name"] as? String ?? "",
                              width: int(s["width"]), height: int(s["height"]), bitRate: int(s["bit_rate"]),
                              bitsPerSample: int(s["bits_per_raw_sample"]) ?? int(s["bits_per_sample"]),
-                             sampleFormat: s["sample_fmt"] as? String, tags: tags(s["tags"]))
+                             sampleFormat: s["sample_fmt"] as? String, sampleRate: int(s["sample_rate"]), tags: tags(s["tags"]))
         }
         return MediaInfo(duration: dbl(fmt["duration"]), bitRate: int(fmt["bit_rate"]),
                          formatName: fmt["format_name"] as? String ?? "", streams: streams, tags: tags(fmt["tags"]))

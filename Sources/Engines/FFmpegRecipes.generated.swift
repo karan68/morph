@@ -31,5 +31,6 @@ public enum FFmpegRecipes {
         "image.webp": FFmpegRecipe(args: ["-frames:v", "1", "-c:v", "libwebp", "-quality", "85"], requiresVideoToolbox: false),
         "tool.muteVideo": FFmpegRecipe(args: ["-map", "0", "-map", "-0:a", "-c", "copy"], requiresVideoToolbox: false),
         "tool.removeMetadata.av": FFmpegRecipe(args: ["-map", "0", "-map_metadata", "-1", "-map_chapters", "-1", "-c", "copy", "-fflags", "+bitexact"], requiresVideoToolbox: false),
+        "tool.removeMetadata.audio": FFmpegRecipe(args: ["-map", "0", "-map", "-0:v?", "-map_metadata", "-1", "-map_chapters", "-1", "-c", "copy", "-fflags", "+bitexact"], requiresVideoToolbox: false),
     ]
 }

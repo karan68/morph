@@ -44,10 +44,13 @@ func toolOptions(_ id: String, _ args: [String]) -> ToolOptions {
         if let n = opt(args, "--pct").flatMap(Int.init) { o.percentage = n }
         if let n = opt(args, "--bytes").flatMap(Int64.init) { o.targetBytes = n }
         if args.contains("--no-meta") { o.keepMetadata = false }
+        if let m = opt(args, "--max-dim").flatMap(Int.init), let v = CompressOptions.MaxDimension(rawValue: m) { o.maxDimension = v }
         return .compress(o)
     case "cropImage":
         var o = CropOptions()
         if let a = opt(args, "--aspect"), let v = CropAspect(rawValue: a) { o.aspect = v }
+        if let r = opt(args, "--rect")?.split(separator: ",").compactMap({ Double($0) }), r.count == 4 { o.rect = (r[0], r[1], r[2], r[3]) }
+        if let z = opt(args, "--out-size")?.split(separator: "x").compactMap({ Int($0) }), z.count == 2 { o.outputSize = (z[0], z[1]) }
         return .crop(o)
     case "trimVideo", "trimAudio":
         return .trim(TrimOptions(start: opt(args, "--start").flatMap(Double.init) ?? 0, end: opt(args, "--end").flatMap(Double.init) ?? 1))
@@ -207,7 +210,16 @@ Task { @MainActor in
             var inputs: [URL] = []
             var i = 2
             while i < args.count, !args[i].hasPrefix("--") { inputs.append(URL(fileURLWithPath: args[i])); i += 1 }
-            let out = try await Engine.perform(.tool(id: id, options: toolOptions(id, args)), items: inputs, context: JobContext.standalone())
+            var options = toolOptions(id, args)
+            if id == "trimAudio", args.contains("--auto-silence"), let first = inputs.first {
+                // Same path as the Trim Audio window's "Trim silent ends automatically" checkbox.
+                let w = try await AudioEngine.waveform(first, buckets: 420)
+                let d = try await FFmpeg.probe(first).duration ?? w.duration
+                let r = AudioEngine.nonSilentRange(peaks: w.peaks, duration: d)
+                options = .trim(r)
+                FileHandle.standardError.write(Data(String(format: "auto-silence range %.3f–%.3f of %.3f\n", r.start, r.end, d).utf8))
+            }
+            let out = try await Engine.perform(.tool(id: id, options: options), items: inputs, context: JobContext.standalone())
             print(out.map(\.path).joined(separator: "\n"))
         case "verify":
             guard args.count >= 5 else { fail("verify <input> <output> <kind> <target>") }

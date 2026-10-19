@@ -161,7 +161,8 @@ public enum AudioEngine {
         case "wav", "flac":
             args += ["-c:a", "flac", "-compression_level", "12"]
             if options.preset != .balanced, (info.audio?.bitsPerSample ?? 16) > 16 { args += ["-sample_fmt", "s16"] }
-            if options.preset == .smallest { args += ["-ar", "44100"] }
+            // Smallest: cap at 44.1 kHz — only ever downsample (an 11 kHz recording must not be upsampled).
+            if options.preset == .smallest, let sr = info.audio?.sampleRate, sr > 44_100 { args += ["-ar", "44100"] }
         default: throw JobFailure("Compress isn't available for \(fmt.uppercased()) audio.")
         }
         try await FFmpeg.run(input: input, output: output, args: args, duration: info.duration, context: context) { context?.report($0) }

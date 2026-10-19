@@ -119,7 +119,9 @@ public enum Engine {
                 try await ImageEngine.removeMetadata(input, output: output, context: context)
             case ("removeMetadata", .audio?, _), ("removeMetadata", .video?, _):
                 let info = try await FFmpeg.probe(input, context: context)
-                try await FFmpeg.run(input: input, output: output, args: try FFmpeg.recipeArgs("tool.removeMetadata.av", source: info),
+                // Audio files: embedded cover art (ID3 APIC / attached picture streams) is metadata too.
+                let recipe = family == .audio ? "tool.removeMetadata.audio" : "tool.removeMetadata.av"
+                try await FFmpeg.run(input: input, output: output, args: try FFmpeg.recipeArgs(recipe, source: info),
                                      duration: info.duration, context: context) { context.report($0) }
             case ("removeMetadata", .pdf?, _):
                 try PDFTools.removeMetadata(input, output: output)

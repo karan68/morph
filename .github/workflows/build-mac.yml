@@ -163,6 +163,18 @@ jobs:
         with:
           name: golden-matrix-macos26
           path: matrix-out/run/report.md
+      - name: Tools on real-world files (test-corpus/real) — network denied by the OS
+        env:
+          MORPH_TOOLS_DIR: ${{ github.workspace }}/vendor-out/Helpers
+        run: |
+          scripts/make-real-corpus.sh matrix-out/real "$PWD/probe/MorphCLI"
+          sandbox-exec -p '(version 1)(allow default)(deny network*)' python3 scripts/run-tools.py "$PWD/probe/MorphCLI" matrix-out/real matrix-out/corpus matrix-out/tools
+      - name: Publish tool results (for independent verification)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tool-outputs-macos26
+          path: matrix-out/tools
       - name: Publish the actual converted files (for independent verification)
         if: always()
         uses: actions/upload-artifact@v4
@@ -197,6 +209,32 @@ jobs:
         with:
           name: conversion-proof
           path: proof/
+
+  verify-tools:
+    name: Independent proof — tools on real files (Linux, different tools)
+    needs: matrix-macos26
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: tool-outputs-macos26, path: tools }
+      - name: Install independent tools (Ubuntu's own builds)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg file python3-pil python3-numpy poppler-utils libimage-exiftool-perl \
+            libheif-examples libheif-plugin-dav1d libheif-plugin-libde265 libarchive-tools >/dev/null
+      - name: Verify every tool result + fake controls
+        run: |
+          set +e
+          python3 scripts/verify-tools.py tools tools-proof
+          rc=$?
+          cat tools-proof/tool-proof.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: tool-proof
+          path: tools-proof/
 
   os-probe:
     name: ImageIO capabilities on ${{ matrix.os }} (spec R5)
