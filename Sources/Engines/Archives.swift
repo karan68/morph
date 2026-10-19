@@ -1,5 +1,6 @@
 import Foundation
 import Jobs
+import Capabilities
 
 /// ZIP / TAR / GZIP (tar.gz) / RAR (read-only) via the bundled libarchive `bsdtar`.
 /// bsdtar refuses absolute paths and `..` components unless -P is given, so extraction stays inside the target.

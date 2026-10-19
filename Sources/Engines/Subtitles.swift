@@ -1,5 +1,6 @@
 import Foundation
 import Jobs
+import Capabilities
 
 /// SRT ↔ VTT and subtitle → TXT, keeping cue timing (M1 subtitle paths: 4).
 public enum Subtitles {

@@ -1,5 +1,6 @@
 import Foundation
 import Jobs
+import Capabilities
 
 /// Locates bundled helper executables (ffmpeg, ffprobe, bsdtar).
 /// App: Morph.app/Contents/Helpers. CLI/tests: $MORPH_TOOLS_DIR. Never falls back to tools on $PATH,

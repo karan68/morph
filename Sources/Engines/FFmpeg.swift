@@ -1,5 +1,6 @@
 import Foundation
 import Jobs
+import Capabilities
 
 /// Subset of `ffprobe -show_format -show_streams -of json` used by engines and tests.
 public struct MediaInfo {

@@ -1,5 +1,6 @@
 import Foundation
 import Jobs
+import Capabilities
 
 /// Lossless, container-level metadata removal (no pixel re-encode) for JPEG, PNG, GIF and WebP.
 /// Keeps what's needed to render identically: colour profile, transparency, animation, and EXIF orientation.
