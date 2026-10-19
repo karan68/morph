@@ -22,6 +22,7 @@ from PIL import Image
 RUN, OUT = sys.argv[1], sys.argv[2]
 os.makedirs(OUT, exist_ok=True)
 TMP = tempfile.mkdtemp(prefix="verify-")
+HEIF_DEC = shutil.which("heif-dec") or shutil.which("heif-convert") or "heif-dec"   # name differs by libheif version
 
 def sh(cmd, timeout=180, binary=False):
     p = subprocess.run(cmd, capture_output=True, timeout=timeout, text=not binary)
@@ -102,8 +103,8 @@ def decode_image(path, fmt):
     """Decode the FULL image with an independent decoder chosen by the sniffed format."""
     if fmt in ("heic", "avif"):
         png = os.path.join(TMP, os.path.basename(path) + ".dec.png")
-        rc, _, se = sh(["heif-dec", path, png])
-        if rc != 0 or not os.path.exists(png): raise RuntimeError("heif-dec: " + se.strip()[-200:])
+        rc, _, se = sh([HEIF_DEC, path, png])
+        if rc != 0 or not os.path.exists(png): raise RuntimeError(os.path.basename(HEIF_DEC) + ": " + se.strip()[-200:])
         path = png
     elif fmt == "svg":
         png = os.path.join(TMP, os.path.basename(path) + ".dec.png")
@@ -310,7 +311,7 @@ lines = [
     "",
     "Verified on Linux with tools that did **not** produce the files: "
     f"{ver(['ffmpeg', '-version'])}; {ver(['file', '--version'])}; Pillow {Image.__version__}; "
-    f"{ver(['heif-dec', '--version'])} (libheif); {ver(['rsvg-convert', '--version'])}; poppler pdftoppm; Ubuntu bsdtar; Python zipfile/tarfile.",
+    f"libheif {ver([HEIF_DEC, '--version'])}; {ver(['rsvg-convert', '--version'])}; poppler pdftoppm; Ubuntu bsdtar; Python zipfile/tarfile.",
     "",
     f"- **Real conversions: {passed} / {len(rows)}** (signature ✓ · not a rename ✓ · full decode ✓ · content matches source ✓)",
     f"- **Rename controls caught: {caught} / {len(controls)}** — every input copied to the target extension (a fake “conversion”) was rejected",
