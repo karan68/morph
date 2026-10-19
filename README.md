@@ -3,6 +3,7 @@
 Zero-click, offline file converter for macOS (Apple silicon, macOS 13+). Drag a file, tap **⇧** for conversions,
 **⌘** for file tools, or **⌃** for file actions, then drop on a petal. Everything runs on your Mac.
 
+- **Feature tracker (done / left):** [docs/TRACKER.md](docs/TRACKER.md)
 - **Status & verification:** [docs/M1-STATUS.md](docs/M1-STATUS.md) — milestone **M1 friends alpha**
 - **Install (testers):** [INSTALL.md](INSTALL.md) · **Checklist:** [docs/TESTER-CHECKLIST.md](docs/TESTER-CHECKLIST.md)
 - **Spec, mockups, prototype:** [docs/spec/README.md](docs/spec/README.md) · native UI snapshots: [docs/snapshots](docs/snapshots)
