@@ -35,11 +35,15 @@ final class SettingsStore: ObservableObject {
     /// Spec mockup 12: "Shown for your first 10 drags".
     static let hintLimit = 10
 
+    private static func key(_ d: UserDefaults, _ k: String, _ def: ModifierKey) -> ModifierKey {
+        d.string(forKey: k).flatMap(ModifierKey.init) ?? def
+    }
+
     private init() {
-        func key(_ k: String, _ def: ModifierKey) -> ModifierKey { d.string(forKey: k).flatMap(ModifierKey.init) ?? def }
-        convertKey = key("key.conversions", .shift)
-        toolsKey = key("key.tools", .command)
-        actionsKey = key("key.actions", .control)
+        let d = UserDefaults.standard
+        convertKey = Self.key(d, "key.conversions", .shift)
+        toolsKey = Self.key(d, "key.tools", .command)
+        actionsKey = Self.key(d, "key.actions", .control)
         hotKeyCode = d.object(forKey: "hotkey.code") as? Int ?? kVK_Space
         hotKeyModifiers = d.object(forKey: "hotkey.mods") as? Int ?? (controlKey | optionKey)
         showHint = d.object(forKey: "hint.show") as? Bool ?? true
