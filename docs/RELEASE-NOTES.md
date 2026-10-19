@@ -1,5 +1,18 @@
 # Morph — friends alpha (M1)
 
+## What's new in 0.1.1
+Fixes found by testing every tool on real-world files (see `TOOL-PROOF.md`, 62/62 real, 59/59 fakes caught):
+- **Compress never makes a file bigger.** If a file is already well compressed, Morph says so and writes nothing (an optimised PDF used to grow 3×).
+- **Metadata → Remove All on PDFs** now also removes the hidden XMP block (original author, title, dates).
+- **Metadata → Remove All on audio** now also removes embedded cover art.
+- **Compress PNG/WebP with “Keep camera & date info”** now really keeps GPS and camera details.
+- **Compress “Smallest” on low-quality audio** no longer upsamples (files were getting bigger).
+- **PNG Compress “Balanced”** is now a maximum-effort lossless re-encode (same pixels, smaller file).
+- **Extract**: archives with unsafe “../” paths get a clear message instead of “damaged”; nothing is written.
+
+---
+
+
 Zero-click offline file converter for Apple-silicon Macs (macOS 13+). Drag a file, tap ⇧ / ⌘ / ⌃, drop on a petal.
 
 **Install:** download the DMG below and follow `READ ME FIRST.md` inside it (or INSTALL.md in the repo).

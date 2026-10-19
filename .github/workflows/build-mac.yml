@@ -130,7 +130,8 @@ jobs:
           (cd dist && zip -qr "../rel/Morph-$V-ui-snapshots.zip" snapshots) || true
           gh release create "$GITHUB_REF_NAME" --prerelease --title "Morph $GITHUB_REF_NAME (friends alpha)" \
             --notes-file docs/RELEASE-NOTES.md \
-            "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip" rel/Morph-$V-ui-snapshots.zip
+            "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip" rel/Morph-$V-ui-snapshots.zip \
+            docs/CONVERSION-PROOF.md docs/TOOL-PROOF.md
 
   matrix-macos26:
     name: Golden matrix on macOS 26 (all 174 paths incl. AVIF output)
