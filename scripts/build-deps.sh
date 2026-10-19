@@ -89,10 +89,14 @@ for lib in "$PREFIX"/lib/*.dylib; do
   id=$(otool -D "$lib" | tail -1)
   cp "$lib" "$OUT/Frameworks/$(basename "$id")"
 done
-fix() { # rewrite every $PREFIX/lib/X dependency to @rpath/X
-  local f=$1
-  { otool -L "$f" | awk 'NR>1{print $1}' | grep "^$PREFIX/lib/" || true; } | while read -r dep; do
-    install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$f"
+fix() { # rewrite every non-system dependency to @rpath/<basename>; it must be one of the bundled dylibs
+  local f=$1 dep base
+  for dep in $(otool -L "$f" | awk 'NR>1{print $1}'); do
+    case "$dep" in /usr/lib/*|/System/*|@rpath/*) continue ;; esac
+    base=$(basename "$dep")
+    [ "$base" = "$(basename "$f")" ] && continue
+    [ -f "$OUT/Frameworks/$base" ] || { echo "ERROR: $f depends on unbundled $dep" >&2; exit 1; }
+    install_name_tool -change "$dep" "@rpath/$base" "$f"
   done
 }
 for f in "$OUT"/Frameworks/*.dylib; do install_name_tool -id "@rpath/$(basename "$f")" "$f"; fix "$f"; done
