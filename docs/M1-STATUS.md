@@ -33,7 +33,7 @@ Program (ad-hoc signing), closed source, macOS 13 minimum, no sandbox in the fri
 | Static no-network check over every Mach-O in the bundle | macOS CI | ✅ |
 | Every bundled binary has `minos 13.0`; no Homebrew/absolute paths | macOS CI (deps job) | ✅ |
 | Engine harness: 56 audio paths, all non-VideoToolbox video/GIF paths, WebP, Mute, AV metadata, archive create/convert/extract incl. the exact `bsdtar … --` argument shape and a RAR fixture | Tokyo VM (Docker, Ubuntu 22.04) | **113/113** ✅ (18 VideoToolbox paths are macOS-only → covered above) |
-| Native UI snapshots (wheels in standard + high-contrast style, Compress, Crop, Settings, onboarding, HUDs, Float shelf, key hint) rendered from the real views | macOS CI → `docs/snapshots/`, release asset | ✅ for visual comparison with `docs/spec/mockups` |
+| Native UI snapshots (wheels in standard + high-contrast style, Compress, Crop, Settings, onboarding, HUDs, Float shelf, key hint) rendered from the real views | macOS CI → [`docs/snapshots/`](snapshots), release asset | ✅ 28 PNGs for visual comparison with `docs/spec/mockups` |
 
 ## Needs your one tester (cannot be verified on CI)
 
@@ -53,6 +53,7 @@ Program (ad-hoc signing), closed source, macOS 13 minimum, no sandbox in the fri
 | Settings pages other than Shortcuts weren't designed | General / Output / Accessibility / Privacy / About contain only settings the spec mentions (+ “Open at login”, standard for menu-bar apps) | Not to invent features. |
 | §7.3 “every test uses an App Sandbox build” | Tests run under an OS network-deny profile (`sandbox-exec`) instead; the friends build has no sandbox | Owner decision: no sandbox for the friends build. The guarantee (OS blocks network during tests) is kept. |
 | Icons | Lucide icons (as in the mockups), pre-rendered to template PNGs | Matches the mockups; ISC licence. |
+| Mockup 13 left panel has a dashed arrow + mini wheel illustration | Real draggable sample file with a “Drag me” label (the real wheel appears when you tap ⇧) | Practice uses the real wheel instead of a picture of one. |
 
 ## Build & share
 
