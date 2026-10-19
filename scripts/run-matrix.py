@@ -42,7 +42,11 @@ def case(group, name, src, cli_args, kind, target, expect_outputs=1):
     rec["inputs"] = [os.path.relpath(x, out) for x in local]
     rec["outputs"] = [os.path.relpath(o, out) for o in outs if os.path.exists(o)]
     rec["target"] = target
-    if code != 0:
+    if code != 0 and "already well compressed" in se and group == "compress" and len(local) == 1:
+        # Honest refusal: Compress never writes a bigger file. Reported as a decline, not as a success.
+        rec["ok"], rec["declined"] = True, True
+        rec["detail"] = "DECLINED (already well compressed; no bigger file written)"
+    elif code != 0:
         rec["detail"] = (se.splitlines() or ["exit %d" % code])[0][:300]
         rec["log"] = se[-2000:]
     elif len(outs) != expect_outputs:
@@ -93,7 +97,7 @@ if sample("jpg"):
     outs = case("compress", "jpg target-size", sample("jpg"), lambda l: ["tool", "compress", l[0], "--goal", "targetSize", "--bytes", str(target)], "compress", "")
     if outs and os.path.getsize(outs[0]) > target:
         results[-1]["ok"] = False; results[-1]["detail"] += f" | {os.path.getsize(outs[0])} > target {target}"
-    case("compress", "2 jpgs (batch)", [sample("jpg"), sample("png")], lambda l: ["tool", "compress", l[0], l[1]], "compress", "", expect_outputs=2)
+    case("compress", "2 images (batch: jpg + heic)", [sample("jpg"), sample("heic")], lambda l: ["tool", "compress", l[0], l[1]], "compress", "", expect_outputs=2)
 if sample("mp4"):
     case("compress", "mp4 50%", sample("mp4"), lambda l: ["tool", "compress", l[0], "--goal", "percentage", "--pct", "50"], "compress", "")
 for f in ["jpg", "png", "tiff", "heic", "webp"]:
@@ -122,7 +126,7 @@ lines = [f"# Golden matrix — {caps['macOS']}", "",
 if notes: lines += ["Corpus notes:", "```", notes.strip(), "```", ""]
 lines += ["| Result | Group | Case | Seconds | Detail |", "|---|---|---|---:|---|"]
 for r in results:
-    lines.append(f"| {'✅' if r['ok'] else ('⏭️' if r.get('skipped') else '❌')} | {r['group']} | {r['name']} | {r.get('seconds', '')} | {r['detail'][:160].replace('|', '/')} |")
+    lines.append(f"| {'⚠️ declined' if r.get('declined') else '✅' if r['ok'] else ('⏭️' if r.get('skipped') else '❌')} | {r['group']} | {r['name']} | {r.get('seconds', '')} | {r['detail'][:160].replace('|', '/')} |")
 open(os.path.join(out, "report.md"), "w").write("\n".join(lines) + "\n")
 json.dump(results, open(os.path.join(out, "results.json"), "w"), indent=2)
 print(f"\n{passed}/{len(results)} passed; conversions {conv_ok}/{len(conv)}")

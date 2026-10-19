@@ -218,6 +218,16 @@ public enum ImageEngine {
         return try Data(contentsOf: tmp)
     }
 
+    /// PNG "Balanced": lossless — same pixels, maximum zlib effort and the best row filter per line.
+    static func losslessPNG(_ image: CGImage, context: JobContext?) async throws -> Data {
+        let dir = FileManager.default.temporaryDirectory
+        let a = dir.appendingPathComponent("morph-l-\(UUID().uuidString).png"), b = dir.appendingPathComponent("morph-l-\(UUID().uuidString).png")
+        defer { try? FileManager.default.removeItem(at: a); try? FileManager.default.removeItem(at: b) }
+        try pngData(image).write(to: a)
+        try await FFmpeg.run(input: a, output: b, args: ["-frames:v", "1", "-c:v", "png", "-compression_level", "9", "-pred", "mixed"], duration: nil, context: context)
+        return try Data(contentsOf: b)
+    }
+
     /// PNG "Strong"/"Smallest": 256-colour palette via FFmpeg palettegen/paletteuse (lossy, like palette quantizers).
     static func quantizedPNG(_ image: CGImage, context: JobContext?) async throws -> Data {
         let dir = FileManager.default.temporaryDirectory
@@ -255,7 +265,7 @@ public enum ImageEngine {
         func encode(_ img: CGImage, q: Double) async throws -> Data {
             switch fmt {
             case "png":
-                return options.goal == .preset && options.preset == .balanced ? try pngData(img) : try await quantizedPNG(img, context: context)
+                return options.goal == .preset && options.preset == .balanced ? try await losslessPNG(img, context: context) : try await quantizedPNG(img, context: context)
             case "tiff", "bmp":
                 return try await encodeToData(img, format: fmt, quality: 1, properties: props, context: context)
             default:
