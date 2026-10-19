@@ -59,6 +59,11 @@ public enum ProcessRunner {
             var out = Data()
             var err = Data()
             var lineBuf = Data()
+            func finish(restOut: Data, restErr: Data) -> (Data, Data) {
+                lock.lock(); defer { lock.unlock() }
+                out.append(restOut); err.append(restErr)
+                return (out, err)
+            }
         }
         let box = Box()
         outPipe.fileHandleForReading.readabilityHandler = { h in
@@ -96,11 +101,7 @@ public enum ProcessRunner {
         errPipe.fileHandleForReading.readabilityHandler = nil
         let restOut = outPipe.fileHandleForReading.readDataToEndOfFile()
         let restErr = errPipe.fileHandleForReading.readDataToEndOfFile()
-        box.lock.lock()
-        if collectStdout { box.out.append(restOut) }
-        box.err.append(restErr)
-        let out = box.out, err = box.err
-        box.lock.unlock()
+        let (out, err) = box.finish(restOut: collectStdout ? restOut : Data(), restErr: restErr)
         try context?.checkCancelled()
         let tail = String(decoding: err.suffix(6_000), as: UTF8.self)
         return ProcessResult(status: status, stdout: out, stderrTail: tail)

@@ -91,7 +91,7 @@ for lib in "$PREFIX"/lib/*.dylib; do
 done
 fix() { # rewrite every $PREFIX/lib/X dependency to @rpath/X
   local f=$1
-  otool -L "$f" | awk 'NR>1{print $1}' | grep "^$PREFIX/lib/" | while read -r dep; do
+  { otool -L "$f" | awk 'NR>1{print $1}' | grep "^$PREFIX/lib/" || true; } | while read -r dep; do
     install_name_tool -change "$dep" "@rpath/$(basename "$dep")" "$f"
   done
 }
