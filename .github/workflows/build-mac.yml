@@ -65,6 +65,10 @@ jobs:
       - name: Self-test the signed bundle (launch + every helper loads its dylibs)
         run: dist/Morph.app/Contents/MacOS/Morph --self-test | tee dist/self-test.json; exit ${PIPESTATUS[0]}
 
+      - name: Render native UI snapshots (compare with docs/spec/mockups)
+        continue-on-error: true
+        run: dist/Morph.app/Contents/MacOS/Morph --render-snapshots dist/snapshots
+
       - name: Static no-network check (all binaries + dylibs)
         run: scripts/check-no-network.sh dist/Morph.app | tee dist/no-network.txt; exit ${PIPESTATUS[0]}
 
@@ -104,6 +108,7 @@ jobs:
             dist/*.json
             dist/*.txt
             dist/*.md
+            dist/snapshots/*.png
             matrix-out/run/results.json
             matrix-out/run/caps.json
           if-no-files-found: warn

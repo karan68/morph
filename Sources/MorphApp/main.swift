@@ -47,6 +47,13 @@ if CommandLine.arguments.contains("--self-test") {
     exit(ok ? 0 : 1)
 }
 
+if let i = CommandLine.arguments.firstIndex(of: "--render-snapshots"), i + 1 < CommandLine.arguments.count {
+    _ = NSApplication.shared
+    NSApp.setActivationPolicy(.prohibited)
+    do { try Snapshots.render(to: URL(fileURLWithPath: CommandLine.arguments[i + 1])); exit(0) }
+    catch { print("snapshot error: \(error)"); exit(1) }
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

@@ -409,3 +409,10 @@ final class WheelPanel: NSPanel {
     }
 }
 #endif
+
+#if canImport(AppKit)
+/// Factory used by `Morph --render-snapshots`.
+public enum KeyHintPreview {
+    public static func view(_ glyphs: [WheelMode: String]) -> AnyView { AnyView(KeyHintView(glyphs: glyphs)) }
+}
+#endif

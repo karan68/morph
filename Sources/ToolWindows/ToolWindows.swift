@@ -221,3 +221,11 @@ func parseTimecode(_ s: String) -> Double? {
     }
 }
 #endif
+
+#if canImport(AppKit)
+/// Factories used by `Morph --render-snapshots` (visual comparison with the spec mockups on CI).
+public enum ToolWindowPreviews {
+    public static func compress(_ items: [URL]) -> AnyView { AnyView(CompressView(items: items, done: { _ in })) }
+    public static func crop(_ items: [URL]) -> AnyView { AnyView(CropImageView(items: items, done: { _ in })) }
+}
+#endif
