@@ -11,7 +11,7 @@ shutil.rmtree(OUT, ignore_errors=True)
 os.makedirs(os.path.join(OUT, "work"))
 cases = []
 
-def run(case_id, tool, src, opts=(), corpus="real", expect="ok"):
+def run(case_id, tool, src, opts=(), corpus="real", expect="ok", noop=False, expect_trim=None):
     """expect: 'ok' (must produce output) or 'refuse' (hostile input: must not write outside its folder)."""
     srcs = src if isinstance(src, list) else [src]
     srcs = [os.path.join(REAL if corpus == "real" else SYN, s) for s in srcs]
@@ -31,6 +31,7 @@ def run(case_id, tool, src, opts=(), corpus="real", expect="ok"):
         "inputs": [os.path.relpath(x, OUT) for x in local], "outputs": [os.path.relpath(o, OUT) for o in outs],
         "exit": p.returncode, "stderr": p.stderr[-1500:], "seconds": round(time.time() - t, 2),
         "autoSilence": [float(rng.group(1)), float(rng.group(2)), float(rng.group(3))] if rng else None,
+        "noop": noop, "expectTrim": expect_trim,
     })
     print(f"{'OK  ' if p.returncode == 0 else 'EXIT' + str(p.returncode)} {case_id:34} → {', '.join(os.path.basename(o) for o in outs)[:90]}", flush=True)
 
@@ -78,7 +79,7 @@ run("crop-jpg-1x1", "cropImage", f"{J}.jpg", ["--aspect", "1:1"])
 run("crop-jpg-16x9", "cropImage", f"{J}.jpg", ["--aspect", "16:9"])
 run("crop-jpg-rect", "cropImage", f"{J}.jpg", ["--rect", "400,300,1200,900"])
 run("crop-jpg-rect-resize", "cropImage", f"{J}.jpg", ["--rect", "400,300,1200,900", "--out-size", "800x600"])
-run("crop-png-4x3", "cropImage", f"{J}.png", ["--aspect", "4:3"])
+run("crop-png-3x4", "cropImage", f"{J}.png", ["--aspect", "3:4"])   # the photo is already 4:3, so 3:4 really crops
 run("crop-heic-9x16", "cropImage", f"{J}.heic", ["--aspect", "9:16"])
 run("crop-batch-2-jpgs", "cropImage", [f"{J}.jpg", f"{J}.png"], ["--aspect", "1:1"])
 
@@ -93,7 +94,9 @@ run("trim-wav", "trimAudio", f"{W}.wav", ["--start", "2.0", "--end", "10.0"])
 run("trim-flac", "trimAudio", f"{W}.flac", ["--start", "2.0", "--end", "10.0"])
 run("trim-mp3", "trimAudio", M, ["--start", "1.0", "--end", "9.0"])
 run("trim-m4a", "trimAudio", f"{W}.m4a", ["--start", "2.0", "--end", "10.0"])
-run("trim-wav-auto-silence", "trimAudio", f"{W}.wav", ["--auto-silence"])
+# Real speech has hiss to the very edges → correctly nothing to trim (a no-op: a copied file is a valid result).
+run("trim-wav-auto-silence-none", "trimAudio", f"{W}.wav", ["--auto-silence"], noop=True)
+run("trim-wav-auto-silence-padded", "trimAudio", f"{W}-padded.wav", ["--auto-silence"], expect_trim=1.5)
 
 # Remove Audio
 for f in ["mp4", "mov", "mkv"]:

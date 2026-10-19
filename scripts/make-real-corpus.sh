@@ -55,6 +55,8 @@ TAGS=(-metadata "title=One small step (test tag)" -metadata "artist=NASA (test t
 q -i "$W" "${TAGS[@]}" -c:a flac "$OUT/armstrong-small-step.flac"
 q -i "$W" "${TAGS[@]}" -c:a aac -b:a 64k "$OUT/armstrong-small-step.m4a"
 note "armstrong-small-step.flac/.m4a: transcoded from the real WAV + title/artist tags"
+q -i "$W" -af "adelay=1500:all=1,apad=pad_dur=1.5" -c:a pcm_u8 "$OUT/armstrong-small-step-padded.wav"
+note "armstrong-small-step-padded.wav: the real WAV with 1.5 s of digital silence added at both ends (for silence trimming)"
 
 V="$OUT/nasa-ksc-swearing-in.webm"
 VT=(-metadata "title=KSC swearing-in (test tag)" -metadata "comment=Morph test tag")

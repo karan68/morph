@@ -9,6 +9,10 @@ public enum Archives {
         let tar = try ToolLocator.require("bsdtar")
         let r = try await ProcessRunner.run(tar, ["-x", "-f", archive.path, "-C", dir.path], context: context)
         guard r.status == 0 else {
+            if r.stderrTail.contains("Path contains '..'") || r.stderrTail.contains("Path is absolute") {
+                throw JobFailure("“\(archive.lastPathComponent)” contains files that would be written outside the destination folder, so Morph didn't extract it. Nothing was written.",
+                                 details: r.stderrTail)
+            }
             throw JobFailure("Morph couldn't open “\(archive.lastPathComponent)”. It may be damaged, encrypted or an unsupported variant.", details: r.stderrTail)
         }
     }

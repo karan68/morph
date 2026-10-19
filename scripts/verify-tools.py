@@ -409,6 +409,10 @@ def check_trim(c, inp, out):
         else:
             k.add("removed parts are silent", max(peak(head), peak(tail)) <= -45,
                   f"removed {s:.2f}s + {d - e:.2f}s, peak {max(peak(head), peak(tail)):.1f} dBFS (≤−45)")
+        if c.get("expectTrim"):
+            x = c["expectTrim"]
+            k.add("added silence removed", s >= x - 0.15 and (d - e) >= x - 0.15 and s <= x + 0.05 and (d - e) <= x + 0.05,
+                  f"removed {s:.2f}s / {d - e:.2f}s of the {x}s added at each end")
     return k
 
 def check_mute(c, inp, out):
@@ -448,7 +452,7 @@ for c in cases:
     ins = [os.path.join(RUN, x) for x in c["inputs"]]; outs = [os.path.join(RUN, x) for x in c["outputs"]]
     if c["expect"] == "decline":
         made = [f for f in os.listdir(os.path.dirname(ins[0])) if "Compressed" in f]
-        msg = (c["stderr"].strip().splitlines() or [""])[0]
+        msg = next((l for l in c["stderr"].splitlines() if l.startswith("FAIL:")), "")
         ok = c["exit"] != 0 and not made and "already well compressed" in c["stderr"] and os.path.getsize(ins[0]) > 0
         rows.append({"id": c["id"], "tool": c["tool"], "ok": ok, "control": None,
                      "summary": ("✓ declined, no bigger file written · " if ok else f"✗ expected a refusal, got exit {c['exit']} files {made} · ") + msg[:150]})
@@ -458,7 +462,7 @@ for c in cases:
         ok = not escaped
         rows.append({"id": c["id"], "tool": c["tool"], "ok": ok, "control": None,
                      "summary": ("✓ nothing written outside the folder" if ok else f"✗ escaped file at {escaped}") +
-                                f" · Morph exit {c['exit']}: {(c['stderr'].strip().splitlines() or [''])[0][:110]}"})
+                                f" · Morph exit {c['exit']}: {next((l for l in c['stderr'].splitlines() if l.startswith('FAIL:')), '')[:160]}"})
         print(("PASS " if ok else "FAIL ") + c["id"], flush=True); continue
     if c["exit"] != 0 or len(outs) != len(ins):
         rows.append({"id": c["id"], "tool": c["tool"], "ok": False, "control": None, "summary": f"✗ Morph failed (exit {c['exit']}): {c['stderr'][-200:]}"})
@@ -470,6 +474,9 @@ for c in cases:
             parts.append((os.path.basename(out) + ": " if len(outs) > 1 else "") + k.summary()); ok = ok and k.ok
         except Exception as e:
             parts.append(f"✗ {type(e).__name__}: {str(e)[:160]}"); ok = False
+        if c.get("noop"):
+            control_caught = None   # the correct result equals the input, so a copy is not a fake
+            continue
         try:
             fk = CHECK[c["tool"]](c, inp, fake_for(c, inp, out))
             control_caught = control_caught and not fk.ok
