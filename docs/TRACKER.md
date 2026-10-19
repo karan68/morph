@@ -25,7 +25,7 @@ Legend: ✅ done & verified on CI · 🧪 done, needs a real-Mac test by the tes
 - [x] Archives (9): ZIP · TAR · GZIP ↔ each other; RAR → ZIP/TAR/GZIP
 - [x] AVIF output hidden automatically where macOS can't write it (macOS 14/15); available on macOS 26
 
-### Tools — 7
+### Tools — 7, all proven on real-world files ([TOOL-PROOF.md](TOOL-PROOF.md): 62/62 results real, 59/59 fakes caught)
 - [x] Compress (images, audio, video, PDF · preset / target size / percentage · resize · keep metadata)
 - [x] Metadata (view grouped + search, Remove All)
 - [x] Crop Image (aspect presets, drag area, exact output size; batch = centred crop)
@@ -62,6 +62,8 @@ Legend: ✅ done & verified on CI · 🧪 done, needs a real-Mac test by the tes
 - [x] Private repo, CI on macOS 15 + 26, OS probe on macOS 14
 - [x] Unit tests (Linux on Tokyo VM + macOS) · golden matrix 217/217 (macOS 15), 224/224 (macOS 26)
 - [x] Independent Linux proof of conversions (CI job + Tokyo VM)
+- [x] Independent Linux proof of all 7 tools on real CC0 / public-domain files ([test-corpus/real](../test-corpus/real/SOURCES.md))
+- [x] Bugs found by the real-file proof and fixed: Compress could write a bigger file (now declines); PDF Remove All left the original XMP author/title; MP3 Remove All kept cover art; Compress PNG/WebP dropped EXIF/GPS with “Keep” on; Compress “Smallest” upsampled low-rate audio; misleading error for unsafe archives
 - [x] Tokyo VM engine harness 113/113 (same FFmpeg 7.1 sources + flags)
 - [x] Ad-hoc signed `.app` + DMG + SHA-256, GitHub pre-release, LGPL sources published
 - [x] Native UI snapshots on CI ([snapshots/](snapshots)) · INSTALL.md · tester checklist · issue template
