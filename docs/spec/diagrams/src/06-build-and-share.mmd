@@ -1,0 +1,20 @@
+flowchart TB
+  subgraph MAC["Your Mac"]
+    ED["Write Swift code · git push<br/>(Santa Lockdown: app not run here)"]
+  end
+  subgraph GH["GitHub"]
+    REPO[("Repo")]
+    subgraph CI["CI on macOS runner"]
+      B1["Build<br/>swift build / xcodebuild<br/>macos-15 or macos-26 (Apple silicon)"] --> T1["Unit + UI tests<br/>(XCTest)"] --> S1["codesign<br/>ad-hoc OR Developer ID"] --> N1["notarytool + staple<br/>(needs $99/yr Apple program)"] --> DMG["DMG + SHA-256"]
+    end
+    REL[("Release / artifact")]
+  end
+  subgraph VM["Tokyo VM"]
+    H1["sandbox-vm-tokyo · Ubuntu 22.04 · Docker<br/>engine-harness container (proposed)<br/>same FFmpeg version + codec flags"] --> G1["Golden-file tests on a synthetic corpus<br/>(PAGES · RTFD · clippings · HEIC fixtures made on macOS)"] --> RPT["Conformance report"]
+  end
+  FR["Friends' Apple-silicon Macs<br/>download → open → test checklist"]
+  ED --> REPO --> B1
+  DMG --> REL --> FR
+  REPO --> H1
+  RPT --> REPO
+  FR -- "feedback via issue template" --> REPO

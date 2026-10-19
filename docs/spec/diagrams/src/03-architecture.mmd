@@ -1,0 +1,41 @@
+flowchart LR
+  subgraph APP["Morph.app (menu-bar agent, LSUIElement · no network required)"]
+    direction TB
+    MB["StatusItem + Menu<br/>(AppKit)"]
+    DM["DragMonitor<br/>NSEvent global mouse monitor<br/>+ NSPasteboard(.drag) changeCount"]
+    MP["ModifierPoller<br/>NSEvent.modifierFlags @60 Hz<br/>(no Accessibility permission)"]
+    WP["WheelPanel<br/>non-activating NSPanel<br/>NSDraggingDestination per petal"]
+    REG["CapabilityRegistry<br/>format → conversions / tools / actions"]
+    Q["JobQueue<br/>Swift concurrency · 2 parallel · cancellable"]
+    TW["Tool windows<br/>(SwiftUI)"]
+    HUD["Progress HUDs<br/>(SwiftUI in NSPanel)"]
+    OUT["OutputWriter<br/>naming rules · atomic write · reveal"]
+    AX["Accessibility layer<br/>AX roles · announcements · reduce motion/contrast"]
+    SET["Settings + keys<br/>(UserDefaults)"]
+  end
+  subgraph ENG["Engines (all on-device)"]
+    direction TB
+    E1["Apple frameworks<br/>ImageIO · Core Image · AVFoundation<br/>AudioToolbox · PDFKit · Vision · NSAttributedString"]
+    E2["Bundled LGPL FFmpeg dylibs<br/>(+ libmp3lame, libopus, libvorbis, libvpx)"]
+    E3["libarchive · libwebp · resvg<br/>(BSD-style · Apache-2.0/MIT)"]
+    E4["Own writers<br/>SRT/VTT · CSV/TSV · OOXML (xlsx/pptx/docx)"]
+  end
+  subgraph OS["macOS services"]
+    direction TB
+    FS[("File system<br/>beside original")]
+    SH["NSSharingService (AirDrop)"]
+    PB["NSPasteboard"]
+    WS["NSWorkspace (Finder reveal, Terminal)"]
+  end
+  DM --> WP
+  MP --> WP
+  REG --> WP
+  WP -- "drop: URLs + target" --> Q
+  Q --> TW
+  Q --> HUD
+  Q --> E1 & E2 & E3 & E4
+  E1 & E2 & E3 & E4 --> OUT --> FS
+  WP -- "actions" --> SH & PB & WS
+  AX -.-> WP & TW & HUD
+  SET -.-> DM & MP & WP
+  MB -.-> SET

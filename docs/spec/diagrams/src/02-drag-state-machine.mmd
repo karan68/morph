@@ -1,0 +1,25 @@
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Dragging: drag pasteboard changed and mouse dragged
+  Dragging --> Idle: mouse up (normal drop)
+  Dragging --> WheelOpen: modifier tapped
+  state WheelOpen {
+    [*] --> Conversions
+    Conversions --> Tools: ⌘
+    Conversions --> Actions: ⌃
+    Tools --> Conversions: ⇧
+    Tools --> Actions: ⌃
+    Actions --> Conversions: ⇧
+    Actions --> Tools: ⌘
+  }
+  WheelOpen --> Highlighted: pointer enters petal
+  Highlighted --> WheelOpen: pointer leaves petal
+  Highlighted --> Executing: drop on petal
+  WheelOpen --> Idle: drop elsewhere / Esc / drag cancelled
+  Executing --> ToolWindow: tool needs settings
+  ToolWindow --> Executing: Apply
+  ToolWindow --> Idle: Cancel
+  Executing --> Done: success
+  Executing --> Failed: error
+  Done --> Idle
+  Failed --> Idle

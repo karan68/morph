@@ -1,0 +1,33 @@
+{
+  "_comment": "Single source of truth for FFmpeg command lines, shared by the macOS app (generated into Sources/Engines/FFmpegRecipes.generated.swift) and the Tokyo VM engine harness (engine-harness/). Placeholders in {braces} are filled by the caller. 'requires': ['videotoolbox'] means the recipe only runs on macOS (the harness reports it as macOS-only).",
+  "placeholders": {
+    "{vbitrate}": "video bitrate, e.g. 6M (computed from the source)",
+    "{pcm_le}": "pcm_s16le or pcm_s24le depending on source bit depth",
+    "{pcm_be}": "pcm_s16be or pcm_s24be depending on source bit depth"
+  },
+  "harness_defaults": { "{vbitrate}": "4M", "{pcm_le}": "pcm_s16le", "{pcm_be}": "pcm_s16be" },
+  "recipes": {
+    "audio.mp3":  { "args": ["-vn", "-c:a", "libmp3lame", "-q:a", "2"] },
+    "audio.m4a":  { "args": ["-vn", "-c:a", "aac", "-b:a", "256k", "-movflags", "+faststart"] },
+    "audio.wav":  { "args": ["-vn", "-c:a", "{pcm_le}"] },
+    "audio.flac": { "args": ["-vn", "-c:a", "flac", "-compression_level", "8"] },
+    "audio.ogg":  { "args": ["-vn", "-c:a", "libvorbis", "-q:a", "6"] },
+    "audio.opus": { "args": ["-vn", "-c:a", "libopus", "-b:a", "160k"] },
+    "audio.aiff": { "args": ["-vn", "-c:a", "{pcm_be}"] },
+    "audio.wma":  { "args": ["-vn", "-c:a", "wmav2", "-b:a", "192k"] },
+
+    "video.mp4":  { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "{vbitrate}", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart"], "requires": ["videotoolbox"] },
+    "video.mov":  { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "{vbitrate}", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k"], "requires": ["videotoolbox"] },
+    "video.mkv":  { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "h264_videotoolbox", "-allow_sw", "1", "-b:v", "{vbitrate}", "-pix_fmt", "yuv420p", "-c:a", "aac", "-b:a", "192k"], "requires": ["videotoolbox"] },
+    "video.webm": { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "libvpx-vp9", "-b:v", "0", "-crf", "32", "-row-mt", "1", "-deadline", "good", "-cpu-used", "4", "-pix_fmt", "yuv420p", "-c:a", "libopus", "-b:a", "128k"] },
+    "video.avi":  { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "mpeg4", "-q:v", "3", "-pix_fmt", "yuv420p", "-c:a", "libmp3lame", "-q:a", "4"] },
+    "video.wmv":  { "args": ["-vf", "scale=trunc(iw/2)*2:trunc(ih/2)*2", "-c:v", "wmv2", "-q:v", "3", "-pix_fmt", "yuv420p", "-c:a", "wmav2", "-b:a", "192k"] },
+    "video.gif":  { "args": ["-an", "-vf", "fps=12,scale='min(640,iw)':-2:flags=lanczos,split[a][b];[a]palettegen=stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4", "-loop", "0"] },
+    "video.mp3":  { "args": ["-vn", "-c:a", "libmp3lame", "-q:a", "2"] },
+
+    "image.webp": { "args": ["-frames:v", "1", "-c:v", "libwebp", "-quality", "85"] },
+
+    "tool.muteVideo":         { "args": ["-map", "0", "-map", "-0:a", "-c", "copy"] },
+    "tool.removeMetadata.av": { "args": ["-map", "0", "-map_metadata", "-1", "-map_chapters", "-1", "-c", "copy", "-fflags", "+bitexact"] }
+  }
+}

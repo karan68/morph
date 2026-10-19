@@ -1,0 +1,16 @@
+flowchart LR
+  IN(["Job: input → output"]) --> C{"Which encoder?"}
+  C -- "encode JPG PNG HEIC TIFF BMP AVIF PDF<br/>(decode incl. WebP, AVIF, HEIC)" --> IMG["ImageIO / Core Image<br/>verified on macOS 26.7"]
+  C -- "encode WebP" --> WEBP["libwebp (BSD-3-Clause)"]
+  C -- "decode SVG" --> SVG["resvg (Apache-2.0 / MIT)<br/>or WKWebView snapshot"]
+  C -- "encode WAV AIFF FLAC M4A (AAC/ALAC)" --> AT["AudioToolbox / AVFoundation<br/>verified with afconvert"]
+  C -- "encode MP3 · OGG · Opus(.opus/.ogg) · WMA" --> FF["FFmpeg LGPL build<br/>+ LAME (LGPL), libopus, libvorbis"]
+  C -- "encode MP4 / MOV (H.264, HEVC)" --> AVF["AVFoundation + VideoToolbox"]
+  C -- "encode MKV WebM AVI WMV GIF" --> FF
+  C -- "PDF ↔ images / text · OCR" --> PDF["PDFKit + Vision"]
+  C -- "DOCX RTF RTFD HTML TXT" --> TXT["NSAttributedString / textutil"]
+  C -- "Markdown · EPUB" --> MD["cmark-gfm (BSD) + own EPUB writer"]
+  C -- "XLSX ODS CSV TSV · PPTX" --> OX["Own OOXML / ODF code<br/>PDF export via Core Graphics"]
+  C -- "PAGES (iWork)" --> PG["OPEN QUESTION<br/>no public spec · Pages.app automation?"]
+  C -- "ZIP TAR GZIP · RAR (read)" --> AR["libarchive (BSD-style)"]
+  C -- "SRT VTT TXT" --> SUB["Own parser / writer"]

@@ -1,0 +1,20 @@
+flowchart TD
+  A["User starts dragging file(s)<br/>in Finder or any app"] --> B{"Tap a modifier key<br/>while dragging?"}
+  B -- "No key" --> Z["Normal macOS drop<br/>(Morph does nothing)"]
+  B -- "⇧ Shift" --> C["Conversion wheel<br/>valid output formats only"]
+  B -- "⌘ Command" --> D["Tools wheel<br/>file-specific tools"]
+  B -- "⌃ Control" --> E["Actions wheel<br/>AirDrop · Float · Copy · Move · Copy Path · Terminal"]
+  C <-. "tap another key" .-> D
+  D <-. "tap another key" .-> E
+  C --> F{"Drop on a petal?"}
+  D --> F
+  E --> F
+  F -- "Centre / outside / Esc" --> X["Cancel: nothing written"]
+  F -- "Conversion" --> J["Job queued"]
+  F -- "One-shot tool<br/>(Mute, Split PDF, Extract…)" --> J
+  F -- "Tool needing input" --> W["Tool window opens<br/>(Trim, Crop, Compress…)"] --> J
+  F -- "Action" --> AC["Action runs<br/>(share sheet, shelf, clipboard…)"]
+  J --> P["Progress HUD<br/>cancel any time"]
+  P -- "success" --> R["New file saved beside original<br/>selected + revealed in Finder"]
+  P -- "failure" --> ER["Plain-language error<br/>original untouched · Retry / Details"]
+  K["Keyboard path: ⌃⌥Space on Finder selection<br/>or Finder ▸ Quick Actions ▸ Convert with Morph…"] --> C

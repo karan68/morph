@@ -1,0 +1,25 @@
+sequenceDiagram
+  autonumber
+  actor U as User
+  participant F as Finder
+  participant DM as DragMonitor
+  participant W as WheelPanel
+  participant Q as JobQueue
+  participant E as Engine
+  participant O as OutputWriter
+  participant H as HUD
+  U->>F: start dragging kyoto-trip.heic
+  F-->>DM: drag pasteboard changeCount++
+  DM->>DM: read file URLs, start polling modifiers
+  U->>DM: tap ⇧
+  DM->>W: show conversion wheel at cursor (7 targets)
+  U->>W: hover PNG petal
+  W-->>U: highlight + centre "PNG" + tick + AX announcement
+  U->>W: drop
+  W->>Q: enqueue(convert, [heic URL], png)
+  Q->>H: show "Converting to PNG"
+  Q->>E: ImageIO decode HEIC → encode PNG (temp file)
+  E-->>Q: progress / done
+  Q->>O: move temp → "kyoto-trip.png" (or "kyoto-trip 2.png")
+  O->>F: reveal + select new file
+  Q->>H: "Saved kyoto-trip.png" (auto-dismiss)

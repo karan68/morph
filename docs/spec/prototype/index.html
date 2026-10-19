@@ -1,0 +1,475 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Morph — clickable prototype</title>
+<link rel="stylesheet" href="../mockups/src/morph.css" />
+<style>
+  html, body { overflow: hidden; }
+  .desktop { width: 100vw; height: 100vh; }
+  .desktop .fileitem { position: absolute; transform: translate(-50%, -50%); cursor: grab; border: 0; background: none; padding: 4px; border-radius: 10px; font: inherit; touch-action: none; }
+  .desktop .fileitem:focus-visible { outline: none; box-shadow: var(--focus); }
+  .desktop .fileitem.source { opacity: .35; }
+  .desktop .fileitem.busy .fileicon { animation: pulse .9s ease-in-out infinite; }
+  @keyframes pulse { 50% { opacity: .45; } }
+  #overlay { position: fixed; inset: 0; pointer-events: none; z-index: 20; }
+  #overlay .wheel { pointer-events: auto; animation: pop .14s ease-out; }
+  @keyframes pop { from { opacity: 0; transform: translate(-50%, -50%) scale(.9); } }
+  .reduce-motion * { animation: none !important; transition: none !important; }
+  #ghost { position: fixed; z-index: 30; pointer-events: none; }
+  .hint { position: fixed; z-index: 25; padding: 9px 13px; border-radius: 12px; font-weight: 600; pointer-events: none; }
+  #huds { position: fixed; right: 16px; top: 42px; display: grid; gap: 8px; z-index: 40; }
+  #huds .hud { position: relative; }
+  .panel { position: fixed; left: 16px; bottom: 16px; width: 330px; border-radius: 16px; padding: 14px 16px; z-index: 35; font-size: 12.5px; line-height: 1.45; }
+  .panel h1 { font-size: 15px; margin: 0 0 6px; display: flex; gap: 8px; align-items: center; }
+  .panel ul { margin: 6px 0 10px; padding-left: 18px; color: var(--ink-2); }
+  .panel label { display: flex; align-items: center; gap: 8px; margin: 4px 0; cursor: pointer; }
+  .panel details summary { cursor: pointer; font-weight: 600; }
+  .panel .foot { color: var(--ink-3); font-size: 11.5px; margin-top: 8px; }
+  #modal { position: fixed; inset: 0; z-index: 50; display: grid; place-items: center; background: rgba(20,16,50,.18); }
+  #modal[hidden] { display: none; }
+  #modal .window { position: relative; width: 480px; }
+  #modal .win-foot { position: static; }
+  #shelf { position: fixed; right: 10px; top: 50%; transform: translateY(-50%); width: 112px; border-radius: 18px; padding: 10px 8px; display: grid; gap: 8px; justify-items: center; z-index: 30; }
+  #shelf[hidden] { display: none; }
+  #shelf header { display: flex; gap: 5px; align-items: center; font-weight: 700; font-size: 12px; color: var(--ink-2); }
+  #shelf .fileitem { position: static; transform: none; width: 96px; }
+  #shelf .fileitem .name { color: var(--ink); text-shadow: none; font-size: 11px; }
+  .action-card { position: fixed; z-index: 45; width: 320px; padding: 14px 16px; border-radius: 14px; left: 50%; top: 80px; transform: translateX(-50%); }
+  .action-card h3 { margin: 0 0 6px; font-size: 15px; }
+  .action-card code { display: block; margin-top: 8px; padding: 8px; border-radius: 8px; background: rgba(28,27,34,.06); font-family: var(--mono); font-size: 12px; word-break: break-all; }
+  .action-card small { display: block; margin-top: 8px; color: var(--ink-3); }
+  .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+  button.btn { cursor: pointer; }
+  button.btn:focus-visible, .seg button:focus-visible { outline: none; box-shadow: var(--focus); }
+  .seg button { border: 0; background: none; font: inherit; padding: 4px 12px; border-radius: 6px; color: var(--ink-2); cursor: pointer; }
+  .seg button[aria-pressed="true"] { background: #fff; color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+  .wheel .target { cursor: pointer; }
+  .wheel .target:focus { outline: none; }
+</style>
+</head>
+<body>
+<div class="desktop" id="desktop">
+  <div class="menubar"><span class="app">Morph prototype</span><span>Drag a file · tap ⇧ ⌘ ⌃ · drop</span><div class="right"><span class="status active" id="mb-logo"></span><span id="clock"></span></div></div>
+  <div id="files" role="group" aria-label="Desktop files" aria-describedby="instructions"></div>
+</div>
+<div id="overlay"></div>
+<div id="ghost" hidden></div>
+<div class="hint glass" id="hint" hidden><span class="kbd">⇧</span> Convert · <span class="kbd">⌘</span> Tools · <span class="kbd">⌃</span> Actions</div>
+<div id="huds" aria-live="polite"></div>
+<aside id="shelf" class="glass" hidden aria-label="Float shelf"><header></header><div id="shelf-items" style="display:grid;gap:8px"></div><button class="btn" id="shelf-clear" style="height:24px;font-size:12px">Clear</button></aside>
+<div id="modal" hidden></div>
+<section class="panel glass" aria-labelledby="p-title">
+  <h1 id="p-title"><span id="p-logo"></span> Morph · prototype</h1>
+  <details open><summary>How to use</summary>
+  <ul>
+    <li><b>Mouse:</b> start dragging a file, tap <span class="kbd">⇧</span> convert, <span class="kbd">⌘</span> tools, or <span class="kbd">⌃</span> actions. Let go of the key, keep dragging, and drop on a petal.</li>
+    <li><b>Keyboard:</b> Tab to a file, press <b>Return</b>. Use arrows to move, Return to apply, Esc to cancel, and ⇧ ⌘ ⌃ to switch wheels. <b>⌃⌥Space</b> opens the wheel for the selected file.</li>
+    <li><b>Multiple files:</b> ⌘-click to select several, then drag one of them.</li>
+    <li><b>Touch:</b> hold a file for half a second, then drag to convert.</li>
+  </ul></details>
+  <label><input type="checkbox" id="opt-motion"> Reduce motion</label>
+  <label><input type="checkbox" id="opt-contrast"> Increase contrast</label>
+  <label><input type="checkbox" id="opt-sound" checked> Tick sound on highlight</label>
+  <label><input type="checkbox" id="opt-hold"> Hold-to-open (wheel closes when key released)</label>
+  <button class="btn" id="reset" style="margin-top:6px">Reset desktop</button>
+  <div class="foot">Simulation only: no real files are read or written. Formats and tools follow the capability matrix in the spec.</div>
+</section>
+<p class="sr-only" id="instructions">Drag a file, then tap Shift for conversions, Command for file tools, or Control for file actions. The wheel stays open until you drop. Or focus a file and press Return to open the conversion wheel. Use the arrow keys to choose, Return to apply, and Escape to cancel.</p>
+<div class="sr-only" id="announce" role="status" aria-live="polite"></div>
+
+<script src="../mockups/src/icons.js"></script>
+<script src="../mockups/src/matrix.js"></script>
+<script src="../mockups/src/morph-ui.js"></script>
+<script>
+(() => {
+  const { icon, fileIcon, wheelHTML, hitTest, GEO, label, CATEGORY } = MorphUI;
+  const MX = window.MATRIX;
+  const $ = (s) => document.querySelector(s);
+  const filesEl = $("#files"), overlay = $("#overlay"), ghostEl = $("#ghost"), hintEl = $("#hint"), announceEl = $("#announce");
+  const logo = `<svg width="16" height="16" viewBox="0 0 24 24"><defs><linearGradient id="plg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8f7dff"/><stop offset="1" stop-color="#2fd1c4"/></linearGradient></defs><circle cx="12" cy="12" r="8.2" fill="none" stroke="url(#plg)" stroke-width="4.2" stroke-dasharray="8.2 2.6"/><circle cx="12" cy="12" r="2.6" fill="url(#plg)"/></svg>`;
+  $("#mb-logo").innerHTML = logo; $("#p-logo").innerHTML = logo;
+  $("#shelf header").innerHTML = `${icon("pin", 13)} Float`;
+  $("#clock").textContent = new Date().toLocaleString([], { weekday: "short", hour: "2-digit", minute: "2-digit" });
+
+  // ---------- state ----------
+  const SEED = [
+    ["kyoto-trip.heic", "heic", 32, 22, "ph-1"], ["beach.jpg", "jpg", 42, 22, "ph-2"], ["forest.jpg", "jpg", 52, 22, "ph-3"],
+    ["captions.srt", "srt", 62, 22], ["essay.docx", "docx", 72, 22], ["Invoices 2026", "folder", 82, 22],
+    ["harbor.mov", "mov", 32, 44], ["mixtape.mp3", "mp3", 42, 44], ["field-notes.pdf", "pdf", 52, 44],
+    ["budget.xlsx", "xlsx", 62, 44], ["project.zip", "zip", 72, 44], ["readme.txt", "txt", 82, 44],
+  ];
+  let files = [], uid = 0, selection = new Set();
+  const opts = { motion: false, contrast: false, sound: true, hold: false };
+  function reset() {
+    files = SEED.map(([name, fmt, x, y, photo]) => ({ id: ++uid, name, fmt, x, y, photo }));
+    selection = new Set(); shelf = []; renderFiles(); renderShelf();
+  }
+  const fmtOf = (name) => (/\.tar\.gz$/i.test(name) ? "gz" : (name.split(".").pop() || "").toLowerCase());
+  const baseOf = (name) => name.replace(/(?:\.tar\.gz|\.tgz|\.[^.]+)$/i, "");
+
+  function renderFiles() {
+    filesEl.innerHTML = "";
+    for (const f of files) {
+      const b = document.createElement("button");
+      b.className = `fileitem on-wall${selection.has(f.id) ? " selected" : ""}${f.busy ? " busy" : ""}`;
+      b.style.left = f.x + "%"; b.style.top = f.y + "%";
+      b.dataset.id = f.id;
+      b.setAttribute("aria-label", `${f.name}${selection.has(f.id) ? ", selected" : ""}`);
+      b.setAttribute("aria-haspopup", "menu");
+      b.setAttribute("aria-describedby", "instructions");
+      if (f.busy) b.setAttribute("aria-busy", "true");
+      b.innerHTML = `${fileIcon(f.fmt, { photo: f.photo })}<span class="name">${f.name}</span>`;
+      b.addEventListener("pointerdown", (e) => onPointerDown(e, f, b));
+      b.addEventListener("keydown", (e) => { if ((e.key === "Enter" || e.key === " ") && !s) { e.preventDefault(); e.stopPropagation(); openKeyboard(f, b); } });
+      b.addEventListener("contextmenu", (e) => e.preventDefault());
+      filesEl.append(b);
+    }
+  }
+  const elFor = (f) => filesEl.querySelector(`[data-id="${f.id}"]`);
+  const say = (t) => { announceEl.textContent = ""; requestAnimationFrame(() => (announceEl.textContent = t)); };
+
+  // ---------- sound (generated tick, no asset) ----------
+  let actx;
+  function tick() {
+    if (!opts.sound) return;
+    try {
+      actx ??= new (window.AudioContext || window.webkitAudioContext)();
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.frequency.value = 1450; g.gain.setValueAtTime(0.05, actx.currentTime); g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + 0.04);
+      o.connect(g).connect(actx.destination); o.start(); o.stop(actx.currentTime + 0.05);
+    } catch {}
+  }
+
+  // ---------- targets ----------
+  function group(source) {
+    const sel = selection.has(source.id) && selection.size > 1 ? files.filter((f) => selection.has(f.id)) : [source];
+    return sel;
+  }
+  function targetsFor(mode, items) {
+    if (mode === "actions") return Object.keys(MX.actionDefs);
+    const fmts = new Set(items.map((f) => f.fmt));
+    if (fmts.size !== 1 || fmts.has("folder")) return [];
+    const fmt = [...fmts][0];
+    if (mode === "conversions") return MX.conversions[fmt] || [];
+    const t = MX.tools[fmt];
+    return t ? (items.length > 1 ? t.multi : t.single) : [];
+  }
+  function emptyText(mode, items) {
+    const fmts = new Set(items.map((f) => f.fmt));
+    if (fmts.size > 1) return "Mixed selection.<br>Tap ⌃ for file actions.";
+    const f = label(items[0].fmt);
+    return mode === "tools" ? `No editing tools for ${f}.<br>Tap ⇧ to convert or ⌃ for actions.` : `No conversions for ${f}.<br>Tap ⌃ for file actions.`;
+  }
+
+  // ---------- session ----------
+  let s = null; // drag / keyboard session
+  const KEYMODE = { Shift: "conversions", Meta: "tools", Control: "actions" };
+  const held = new Set();
+
+  function onPointerDown(e, f, el) {
+    if (e.button !== 0 || f.busy || s) return;
+    e.preventDefault(); el.focus({ preventScroll: true });
+    el.setPointerCapture(e.pointerId);
+    s = { kind: "pointer", source: f, el, pid: e.pointerId, ptype: e.pointerType, sx: e.clientX, sy: e.clientY, x: e.clientX, y: e.clientY, active: false, mode: null, anchor: null, hl: null, meta: e.metaKey };
+    if (e.metaKey && !e.shiftKey) s.metaClick = true;
+    for (const k of Object.keys(KEYMODE)) if (e.getModifierState(k)) held.add(k);
+    if (e.pointerType === "touch") s.touchTimer = setTimeout(() => { if (s && !s.active) { s.touchConvert = true; beginDrag(); setMode("conversions"); update(); } }, 450);
+  }
+  function beginDrag() {
+    s.active = true; s.items = group(s.source);
+    for (const it of s.items) elFor(it)?.classList.add("source");
+    ghostEl.innerHTML = `<div class="ghost" style="position:static">${fileIcon(s.source.fmt, { photo: s.source.photo })}<span class="name">${s.items.length > 1 ? `${s.items.length} items` : s.source.name}</span><span class="plus" hidden>+</span></div>`;
+    ghostEl.hidden = false;
+    const preset = [...held].map((k) => KEYMODE[k]).find(Boolean);
+    if (preset && !s.metaClick) setMode(preset);
+    say(`Dragging ${s.items.length > 1 ? s.items.length + " files" : s.source.name}. Tap Shift, Command, or Control.`);
+  }
+  function setMode(mode) {
+    if (!s || !mode || s.mode === mode) return;
+    s.mode = mode; s.items ??= group(s.source);
+    s.targets = targetsFor(mode, s.items); s.hl = null;
+    if (!s.anchor) {
+      const m = GEO.backdrop + 50;
+      s.anchor = { x: Math.max(m, Math.min(innerWidth - m, s.x)), y: Math.max(m, Math.min(innerHeight - m - 30, s.y)) };
+    }
+    renderWheel();
+    const n = s.targets.length;
+    const what = mode === "actions" ? "file action" : mode === "tools" ? "file tool" : "conversion";
+    say(n ? `${n} ${what}${n > 1 ? "s" : ""}. ${s.kind === "keyboard" ? "Use arrow keys, then Return." : "Drop on one."}` : emptyText(mode, s.items).replace(/<br>/g, " "));
+    if (s.kind === "keyboard" && n) highlight(0, true);
+  }
+  function renderWheel() {
+    const first = s.items[0];
+    const size = first.fmt === "folder" ? "" : `${(1.2 + (first.name.length % 7) * 0.7).toFixed(1)} MB`;
+    overlay.innerHTML = wheelHTML({
+      x: s.anchor.x, y: s.anchor.y, mode: s.mode, targets: s.targets, contrast: opts.contrast,
+      emptyText: emptyText(s.mode, s.items),
+      center: first.photo ? { thumb: first.photo, text: s.items.length > 1 ? `${s.items.length} files` : size } : { fmt: first.fmt, text: s.items.length > 1 ? `${s.items.length} files` : size },
+    });
+    s.centerHTML = overlay.querySelector(".center")?.innerHTML ?? "";
+    overlay.querySelectorAll(".target").forEach((g, i) => {
+      g.setAttribute("tabindex", "-1"); g.id = `petal-${i}`;
+      g.addEventListener("click", () => { if (s?.kind === "keyboard") { highlight(i); apply(); } });
+    });
+    s.el.setAttribute("aria-expanded", "true");
+  }
+  function highlight(i, focus = false) {
+    if (!s || s.hl === i) return;
+    s.hl = i;
+    const wheel = overlay.querySelector(".wheel");
+    if (!wheel) return;
+    wheel.querySelectorAll(".target").forEach((g, j) => { g.classList.toggle(s.kind === "keyboard" ? "focus" : "hl", j === i); g.classList.remove(s.kind === "keyboard" ? "hl" : "focus"); });
+    const c = wheel.querySelector(".center");
+    if (c) {
+      if (i == null) c.innerHTML = s.centerHTML;
+      else c.innerHTML = `<span class="big">${s.mode === "conversions" ? label(s.targets[i]) : (MX.toolDefs[s.targets[i]] || MX.actionDefs[s.targets[i]]).title}</span>`;
+    }
+    if (i != null) {
+      tick();
+      if (s.kind === "keyboard" || focus) wheel.querySelector(`#petal-${i}`)?.focus({ preventScroll: true });
+      const t = s.targets[i];
+      say(`${s.mode === "conversions" ? "Convert to " + label(t) : (MX.toolDefs[t] || MX.actionDefs[t]).name}, ${i + 1} of ${s.targets.length}`);
+    }
+    ghostEl.querySelector(".plus")?.toggleAttribute("hidden", i == null);
+  }
+  function update() {
+    if (!s || s.kind !== "pointer" || !s.active) return;
+    ghostEl.style.left = s.x - 40 + "px"; ghostEl.style.top = s.y - 70 + "px";
+    const showHint = !s.mode && !s.touchConvert;
+    hintEl.hidden = !showHint;
+    if (showHint) { hintEl.style.left = Math.min(innerWidth - 330, s.x + 24) + "px"; hintEl.style.top = Math.max(40, s.y - 110) + "px"; }
+    if (s.anchor && s.targets.length) highlight(hitTest(s.x - s.anchor.x, s.y - s.anchor.y, s.targets.length));
+  }
+  function end(restoreFocus = true) {
+    if (!s) return;
+    clearTimeout(s.touchTimer);
+    files.forEach((f) => elFor(f)?.classList.remove("source"));
+    s.el.setAttribute("aria-expanded", "false");
+    const el = s.el;
+    s = null; overlay.innerHTML = ""; ghostEl.hidden = true; hintEl.hidden = true;
+    if (restoreFocus && el.isConnected) el.focus({ preventScroll: true });
+  }
+
+  addEventListener("pointermove", (e) => {
+    if (!s || s.kind !== "pointer" || e.pointerId !== s.pid) return;
+    s.x = e.clientX; s.y = e.clientY;
+    if (!s.active && Math.hypot(s.x - s.sx, s.y - s.sy) > 4) { clearTimeout(s.touchTimer); beginDrag(); }
+    update();
+  });
+  addEventListener("pointerup", (e) => {
+    if (!s || s.kind !== "pointer" || e.pointerId !== s.pid) return;
+    s.x = e.clientX; s.y = e.clientY; update();
+    if (!s.active) { // click = select
+      const f = s.source;
+      if (s.metaClick) selection.has(f.id) ? selection.delete(f.id) : selection.add(f.id);
+      else selection = new Set([f.id]);
+      end(); renderFiles(); elFor(f)?.focus();
+      say(`${selection.size} selected`);
+      return;
+    }
+    if (s.mode && s.hl != null) return apply();
+    if (!s.mode) { // plain drop = move on desktop
+      const it = s.source; it.x = (s.x / innerWidth) * 100; it.y = (s.y / innerHeight) * 100;
+      end(); renderFiles(); say(`${it.name} moved.`); return;
+    }
+    end(); say("Cancelled.");
+  });
+  addEventListener("pointercancel", () => end());
+
+  addEventListener("keydown", (e) => {
+    if (!$("#modal").hidden) return modalKey(e);
+    if (e.ctrlKey && e.altKey && e.code === "Space") {
+      e.preventDefault();
+      const f = files.find((x) => selection.has(x.id)) || files.find((x) => elFor(x) === document.activeElement);
+      if (f && !s) openKeyboard(f, elFor(f));
+      return;
+    }
+    if (KEYMODE[e.key]) {
+      const first = !held.has(e.key); held.add(e.key);
+      if (s && first && (s.active || s.kind === "keyboard")) { e.preventDefault(); setMode(KEYMODE[e.key]); update(); }
+    }
+    if (e.key === "Escape") { if (document.querySelector(".action-card")) return closeCard(); if (s) { e.preventDefault(); end(); say("Cancelled."); } }
+    if (s?.kind === "keyboard" && s.targets.length) {
+      const n = s.targets.length;
+      if (["ArrowRight", "ArrowDown", "ArrowLeft", "ArrowUp", "Home", "End"].includes(e.key)) {
+        e.preventDefault();
+        let i = s.hl ?? 0;
+        i = e.key === "Home" ? 0 : e.key === "End" ? n - 1 : (i + (["ArrowRight", "ArrowDown"].includes(e.key) ? 1 : -1) + n) % n;
+        highlight(i);
+      } else if (e.key === "Enter" || e.key === " ") { e.preventDefault(); apply(); }
+      else if (e.key === "Tab") end();
+    }
+  });
+  addEventListener("keyup", (e) => {
+    held.delete(e.key);
+    if (opts.hold && s && KEYMODE[e.key] === s.mode && s.kind === "pointer") { s.mode = null; s.anchor = null; overlay.innerHTML = ""; update(); }
+  });
+  addEventListener("blur", () => { held.clear(); if (s?.kind === "pointer") end(false); });
+
+  function openKeyboard(f, el) {
+    const r = el.getBoundingClientRect();
+    s = { kind: "keyboard", source: f, el, x: r.x + r.width / 2, y: r.y + r.height / 2, active: true, mode: null, anchor: null, hl: null };
+    s.items = group(f);
+    const any = targetsFor("conversions", s.items).length;
+    setMode(any ? "conversions" : "actions");
+  }
+
+  // ---------- apply ----------
+  const SUFFIX = { compress: "Compressed", removeMetadata: "No Metadata", editImage: "Edited", annotateImage: "Annotated", frameImage: "Background", cropImage: "Cropped", redactImage: "Redacted", cropVideo: "Cropped", normalizeAudio: "Normalized", muteVideo: "Muted", trimVideo: "Trimmed", trimAudio: "Trimmed", redactAudio: "Bleeped", changeVideoSpeed: "Speed 2x", videoSnapshots: "Snapshot", splitVideo: "Clips", splitPDF: "Pages", organizePDF: "Organized", redactVideo: "Redacted", extractArchive: "Extracted", audioToVideo: "Visualizer", audioChannels: "Mono" };
+  const OUTFMT = { annotateImage: "png", videoSnapshots: "png", splitVideo: "folder", splitPDF: "folder", extractArchive: "folder", organizePDF: "pdf", audioToVideo: "mp4" };
+  const COMBINE = { createPDF: ["Images", "pdf"], mergePDF: ["Merged", "pdf"], joinVideos: ["Joined", "mp4"], createCollage: ["Collage", "png"] };
+  const ONE_SHOT = new Set(["muteVideo", "splitPDF", "extractArchive", "createPDF", "mergePDF", "removeMetadata"]);
+  const DESC = {
+    compress: "Shrink the file. Choose a preset, a size to aim for, or a percentage.", editImage: "Tune exposure, colour and sharpness and watch the result update.", annotateImage: "Mark up the picture with arrows, boxes, labels and step numbers.",
+    frameImage: "Set the picture on a backdrop: solid, gradient or another photo.", cropImage: "Cut to a ratio or to exact pixel dimensions.", redactImage: "Hide faces or text, found on this Mac, with a block or blur.",
+    normalizeAudio: "Even out loudness to a chosen LUFS target.", trimVideo: "Keep just the part you want, frame-accurate.", trimAudio: "Cut the start and end on a waveform, or drop silence at the edges.",
+    cropVideo: "Reframe the picture. The soundtrack is kept as is.", changeVideoSpeed: "Speed it up or slow it down without chipmunk audio.", videoSnapshots: "Grab individual frames as full-size PNG images.",
+    splitVideo: "Cut into parts at points you choose, saved into one folder.", redactVideo: "Cover a region for a time range you choose.", audioToVideo: "Turn a recording into an MP4 with a moving waveform or a still picture.",
+    audioChannels: "Switch between mono and stereo and balance left and right.", redactAudio: "Pick moments in the recording and beep over them.", organizePDF: "Drag pages into a new order, turn them, copy or delete them.",
+    joinVideos: "Line up clips and export them as a single MP4.", createCollage: "Lay several pictures out in one image.",
+  };
+
+  function uniqueName(base, ext) {
+    const names = new Set(files.map((f) => f.name));
+    const e = ext === "folder" ? "" : "." + (ext === "gz" ? "tar.gz" : ext);
+    let n = `${base}${e}`, i = 2;
+    while (names.has(n)) n = `${base} ${i++}${e}`;
+    return n;
+  }
+  function apply() {
+    if (!s || s.hl == null) return;
+    const mode = s.mode, t = s.targets[s.hl], items = s.items, at = { x: s.x, y: s.y };
+    end(false);
+    if (mode === "actions") return runAction(t, items);
+    if (mode === "conversions") return runJobs(items.map((it) => ({ src: it, name: uniqueName(baseOf(it.name), t), fmt: t })), `Converting to ${label(t)}`, at);
+    if (COMBINE[t]) { const [suf, fmt] = COMBINE[t]; return runJobs([{ src: items[0], name: uniqueName(`${baseOf(items[0].name)} ${suf}`, fmt), fmt }], MX.toolDefs[t].name, at); }
+    const jobs = items.map((it) => {
+      const fmt = OUTFMT[t] || (t === "compress" && it.fmt === "wav" ? "flac" : it.fmt);
+      return { src: it, name: uniqueName(`${baseOf(it.name)} ${SUFFIX[t]}`, fmt), fmt };
+    });
+    if (ONE_SHOT.has(t) || items.length > 1) return runJobs(jobs, MX.toolDefs[t].name, at);
+    openTool(t, items[0], () => runJobs(jobs, MX.toolDefs[t].name, at));
+  }
+
+  function runJobs(jobs, title, at) {
+    const hud = document.createElement("div");
+    hud.className = "hud glass"; hud.setAttribute("role", "group"); hud.setAttribute("aria-label", title);
+    const subj = jobs.length > 1 ? `${jobs.length} files` : jobs[0].src.name;
+    hud.innerHTML = `<div class="t"><span class="badge">${icon("chevron", 13)}</span>${title}<button class="closebtn btn" aria-label="Cancel ${title}" style="margin-left:auto;width:22px;height:22px;padding:0;justify-content:center">${icon("x", 12)}</button></div><div class="sub"><span>${subj}</span><span class="pct">0%</span></div><div class="bar" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" aria-label="${title} progress"><b style="width:0%"></b></div>`;
+    $("#huds").prepend(hud);
+    say(`${title}: ${subj}…`);
+    const created = jobs.map((j, k) => {
+      const pos = place(at);
+      const nf = { id: ++uid, name: j.name, fmt: j.fmt, x: pos.x, y: pos.y, photo: CATEGORY(j.fmt) === "image" ? j.src.photo : undefined, busy: true };
+      files.push(nf); return nf;
+    });
+    renderFiles();
+    let cancelled = false, p = 0;
+    hud.querySelector("button").onclick = () => { cancelled = true; };
+    const dur = opts.motion || matchMedia("(prefers-reduced-motion: reduce)").matches ? 150 : 1100;
+    const t0 = performance.now();
+    (function step(now) {
+      p = Math.min(100, Math.round(((now - t0) / dur) * 100));
+      hud.querySelector(".bar b").style.width = p + "%"; hud.querySelector(".pct").textContent = p + "%";
+      hud.querySelector(".bar").setAttribute("aria-valuenow", p);
+      if (cancelled) { files = files.filter((f) => !created.includes(f)); renderFiles(); hud.remove(); say(`${title} cancelled. Nothing was saved.`); return; }
+      if (p < 100) return requestAnimationFrame(step);
+      created.forEach((f) => (f.busy = false));
+      selection = new Set(created.map((f) => f.id)); renderFiles();
+      hud.classList.add("ok");
+      hud.innerHTML = `<div class="t"><span class="badge">${icon("check", 13)}</span>Saved ${created.length > 1 ? created.length + " files" : created[0].name}<button class="closebtn btn" aria-label="Dismiss" style="margin-left:auto;width:22px;height:22px;padding:0;justify-content:center">${icon("x", 12)}</button></div><div class="sub"><span>Beside the original</span></div>`;
+      hud.querySelector("button").onclick = () => hud.remove();
+      say(`Saved ${created.map((f) => f.name).join(", ")} beside the original.`);
+      setTimeout(() => hud.remove(), 4000);
+    })(t0);
+  }
+  function place(at) {
+    const x = (at.x / innerWidth) * 100, y = (at.y / innerHeight) * 100;
+    const free = (px, py) => !files.some((f) => Math.abs(f.x - px) < 8 && Math.abs(f.y - py) < 13);
+    let best = null, bestD = Infinity;
+    for (let gy = 12; gy <= 86; gy += 2) for (let gx = 30; gx <= 90; gx += 2) {
+      if (!free(gx, gy)) continue;
+      const d = Math.hypot(gx - x, (gy - y) * 1.6);
+      if (d < bestD) { bestD = d; best = { x: gx, y: gy }; }
+    }
+    return best || { x: Math.max(30, Math.min(88, x)), y: Math.max(12, Math.min(86, y)) };
+  }
+
+  // ---------- tool window ----------
+  let modalDone = null, modalPrev = null;
+  function openTool(t, f, done) {
+    const m = $("#modal"); modalDone = done; modalPrev = elFor(f);
+    const name = MX.toolDefs[t].name;
+    const body = t === "compress"
+      ? `<div class="row"><span class="label" style="width:90px">Goal</span><span class="seg" role="group" aria-label="Goal"><button aria-pressed="true">Preset</button><button aria-pressed="false">Target size</button><button aria-pressed="false">Percentage</button></span></div>
+         <div class="row"><span class="label" style="width:90px">Preset</span><span class="seg" role="group" aria-label="Preset"><button aria-pressed="true">Balanced</button><button aria-pressed="false">Strong</button><button aria-pressed="false">Smallest</button></span></div>`
+      : `<p style="margin:0;color:var(--ink-2)">${DESC[t] || ""}</p><p class="muted" style="margin:0">The real app shows this tool's full controls here (see the mockups).</p>`;
+    m.innerHTML = `<div class="window" role="dialog" aria-modal="true" aria-labelledby="tool-title"><div class="titlebar"><button class="closebtn btn" aria-label="Close" id="tool-close" style="padding:0;justify-content:center">${icon("x", 14)}</button><h2 id="tool-title">${name}</h2><span></span></div>
+      <div class="win-body stack"><div class="row"><b>${f.name}</b></div>${body}</div>
+      <div class="win-foot"><span class="spacer"></span><button class="btn" id="tool-cancel">Cancel</button><button class="btn primary" id="tool-apply">${t === "compress" ? "Compress" : "Apply"}</button></div></div>`;
+    m.hidden = false;
+    m.querySelectorAll(".seg").forEach((g) => g.querySelectorAll("button").forEach((b) => (b.onclick = () => g.querySelectorAll("button").forEach((x) => x.setAttribute("aria-pressed", String(x === b))))));
+    $("#tool-close").onclick = $("#tool-cancel").onclick = () => closeModal(false);
+    $("#tool-apply").onclick = () => closeModal(true);
+    $("#tool-apply").focus();
+    say(`${name} window. Return to apply, Escape to cancel.`);
+  }
+  function closeModal(ok) { $("#modal").hidden = true; $("#modal").innerHTML = ""; if (ok) modalDone?.(); else say("Cancelled."); modalPrev?.focus(); }
+  function modalKey(e) {
+    if (e.key === "Escape") { e.preventDefault(); closeModal(false); }
+    if (e.key === "Enter" && document.activeElement?.closest(".seg") == null) { e.preventDefault(); closeModal(true); }
+    if (e.key === "Tab") { // simple focus trap
+      const els = [...$("#modal").querySelectorAll("button")]; const i = els.indexOf(document.activeElement);
+      e.preventDefault(); els[(i + (e.shiftKey ? -1 : 1) + els.length) % els.length].focus();
+    }
+  }
+
+  // ---------- actions ----------
+  let shelf = [];
+  function closeCard() { document.querySelector(".action-card")?.remove(); }
+  function card(title, text, extra = "") {
+    closeCard();
+    const c = document.createElement("div");
+    c.className = "action-card glass"; c.setAttribute("role", "dialog"); c.setAttribute("aria-label", title);
+    c.innerHTML = `<h3>${title}</h3><div>${text}</div>${extra}<small>Prototype preview: no real files change.</small><div style="text-align:right;margin-top:8px"><button class="btn" id="card-ok">OK</button></div>`;
+    document.body.append(c); $("#card-ok").onclick = closeCard; $("#card-ok").focus();
+    say(`${title}. ${c.textContent}`);
+  }
+  function runAction(a, items) {
+    const names = items.map((f) => f.name);
+    const paths = names.map((n) => `/Users/you/Desktop/${n}`);
+    if (a === "float") { for (const f of items) if (!shelf.includes(f)) shelf.push(f); renderShelf(); say(`Added ${names.join(", ")} to the Float shelf.`); return; }
+    if (a === "copyPath") { navigator.clipboard?.writeText(paths.join("\n")).catch(() => {}); return card("Copy Path", `Copied ${paths.length} path${paths.length > 1 ? "s" : ""} to the clipboard.`, `<code>${paths.join("<br>")}</code>`); }
+    if (a === "openTerminal") return card("Terminal", "Terminal (or iTerm2 if installed) would open at:", `<code>cd ~/Desktop${items[0].fmt === "folder" ? "/" + items[0].name.replace(/ /g, "\\ ") : ""}</code>`);
+    if (a === "airDrop") return card("AirDrop", `The macOS AirDrop sheet would open with ${names.join(", ")}.`);
+    if (a === "copy") return card("Copy", `${names.length} item${names.length > 1 ? "s" : ""} copied. Paste in Finder with ⌘V.`);
+    if (a === "move") {
+      const folder = files.find((f) => f.fmt === "folder" && !items.includes(f));
+      if (!folder) return card("Move", "Choose a destination folder (macOS folder picker).");
+      files = files.filter((f) => !items.includes(f)); selection = new Set([folder.id]); renderFiles();
+      return card("Move", `Moved ${names.join(", ")} into “${folder.name}”.`);
+    }
+  }
+  function renderShelf() {
+    const box = $("#shelf-items"); box.innerHTML = "";
+    $("#shelf").hidden = !shelf.length;
+    for (const f of shelf) { const d = document.createElement("div"); d.className = "fileitem"; d.innerHTML = `${fileIcon(f.fmt, { photo: f.photo })}<span class="name">${f.name}</span>`; d.setAttribute("aria-label", f.name); box.append(d); }
+  }
+  $("#shelf-clear").onclick = () => { shelf = []; renderShelf(); say("Float shelf cleared."); };
+
+  // ---------- options ----------
+  $("#opt-motion").onchange = (e) => { opts.motion = e.target.checked; document.body.classList.toggle("reduce-motion", opts.motion); };
+  $("#opt-contrast").onchange = (e) => { opts.contrast = e.target.checked; };
+  $("#opt-sound").onchange = (e) => { opts.sound = e.target.checked; };
+  $("#opt-hold").onchange = (e) => { opts.hold = e.target.checked; };
+  $("#reset").onclick = () => { end(false); reset(); say("Desktop reset."); };
+  addEventListener("resize", () => s && end(false));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) { $("#opt-motion").checked = true; opts.motion = true; document.body.classList.add("reduce-motion"); }
+  reset();
+  window.__morph = { get session() { return s; }, get files() { return files; } }; // test hook
+})();
+</script>
+</body>
+</html>

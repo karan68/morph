@@ -1,0 +1,9 @@
+Copyright (c) 2026 Karan Yadav. All rights reserved.
+
+This repository is closed source. No license is granted to copy, modify or distribute
+Morph's own source code without written permission.
+
+Third-party components bundled with Morph keep their own licenses — see THIRD_PARTY_NOTICES.md.
+In particular, FFmpeg is used under the GNU LGPL v2.1; its exact source and build configuration are
+published alongside every Morph release, and nothing in these terms restricts reverse engineering
+of the LGPL components.

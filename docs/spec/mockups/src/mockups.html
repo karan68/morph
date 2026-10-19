@@ -1,0 +1,326 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Morph mockups</title>
+<link rel="stylesheet" href="morph.css" />
+<style>
+  body { background: #222; }
+  .cell { position: absolute; width: 720px; height: 450px; }
+  .cell h3 { position: absolute; left: 24px; top: 18px; margin: 0; font-size: 14px; color: var(--ink); }
+  .cell p { position: absolute; left: 24px; top: 38px; margin: 0; font-size: 12px; color: var(--ink-3); max-width: 300px; }
+  .cell .wrap { position: absolute; left: 0; top: 0; width: 720px; height: 450px; transform: scale(.82); transform-origin: 360px 225px; }
+  .divider-v { position: absolute; left: 720px; top: 0; bottom: 0; width: 1px; background: rgba(28,27,34,.1); }
+  .divider-h { position: absolute; top: 450px; left: 0; right: 0; height: 1px; background: rgba(28,27,34,.1); }
+  .menu { position: absolute; width: 318px; border-radius: 14px; padding: 8px; }
+  .menu .item { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 7px; }
+  .menu .item .sc { margin-left: auto; color: var(--ink-3); font-size: 12px; }
+  .menu .item.hover { background: var(--accent); color: #fff; } .menu .item.hover .sc { color: #e6e2ff; }
+  .menu h5 { margin: 8px 10px 4px; font-size: 11px; color: var(--ink-3); font-weight: 600; }
+  .menu .recent { display: grid; grid-template-columns: 30px 1fr auto; gap: 10px; align-items: center; padding: 6px 10px; border-radius: 7px; }
+  .menu .recent .th { width: 30px; height: 30px; border-radius: 6px; }
+  .menu .recent small { display: block; color: var(--ink-3); font-size: 11.5px; }
+  .menu .recent svg { color: var(--ink-3); }
+  .menu .sep { height: 1px; background: var(--line); margin: 6px 8px; }
+  .menu .foot { display: flex; gap: 8px; align-items: center; padding: 8px 10px 4px; color: var(--teal); font-size: 12px; font-weight: 600; }
+  .hint { position: absolute; padding: 10px 14px; border-radius: 14px; }
+  .hint .keys { display: flex; gap: 8px; align-items: center; font-weight: 600; }
+  .hint small { display: block; margin-top: 6px; color: var(--ink-2); font-size: 12px; }
+  .film { display: flex; height: 64px; border-radius: 8px; overflow: hidden; position: relative; }
+  .film div { flex: 1; border-right: 1px solid rgba(0,0,0,.25); }
+  .trimsel { position: absolute; top: 0; bottom: 0; border: 3px solid var(--accent); border-left-width: 14px; border-right-width: 14px; border-radius: 8px; box-shadow: 0 0 0 999px rgba(255,255,255,.55); }
+  .trimsel::before, .trimsel::after { content: ""; position: absolute; top: 50%; width: 3px; height: 20px; margin-top: -10px; border-radius: 2px; background: #fff; }
+  .trimsel::before { left: -9px; } .trimsel::after { right: -9px; }
+  .playhead { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.3); }
+  .settings { display: grid; grid-template-columns: 200px 1fr; }
+  .settings .nav { background: rgba(240,240,246,.8); border-right: 1px solid var(--line); padding: 54px 10px 10px; }
+  .settings .nav div { display: flex; gap: 9px; align-items: center; padding: 7px 10px; border-radius: 7px; font-weight: 500; }
+  .settings .nav div.on { background: var(--accent); color: #fff; }
+  .settings .nav svg { width: 15px; height: 15px; }
+  .settings .content { padding: 22px 26px; }
+  .settings h3 { margin: 0 0 4px; font-size: 18px; }
+  .settings .grp { background: #fff; border-radius: 12px; box-shadow: 0 0 0 1px var(--line); margin-top: 14px; }
+  .settings .grp .r { display: flex; align-items: center; gap: 12px; padding: 11px 14px; border-bottom: 1px solid var(--line); }
+  .settings .grp .r:last-child { border-bottom: 0; }
+  .settings .grp .r .sp { flex: 1; }
+  .settings .grp .r small { display: block; color: var(--ink-3); font-size: 11.5px; margin-top: 2px; }
+  .recorder { display: inline-flex; gap: 4px; align-items: center; padding: 3px; border-radius: 8px; box-shadow: 0 0 0 1px var(--line); background: #fafafe; }
+  .shelf { position: absolute; width: 112px; border-radius: 18px; padding: 10px 8px; display: grid; gap: 10px; justify-items: center; }
+  .shelf header { display: flex; align-items: center; gap: 5px; font-weight: 700; font-size: 12px; color: var(--ink-2); }
+  .shelf .fileitem { width: 96px; } .shelf .fileitem .name { font-size: 11px; }
+  .vo { position: absolute; left: 50%; bottom: 72px; transform: translateX(-50%); width: 760px; padding: 12px 18px; border-radius: 12px; background: rgba(0,0,0,.86); color: #fff; font: 500 17px var(--font); box-shadow: var(--shadow-lg); }
+  .vo small { display: block; font-size: 11px; color: #bdbdbd; margin-bottom: 4px; letter-spacing: .06em; text-transform: uppercase; }
+  .onb { display: grid; grid-template-columns: 1fr 1fr; height: 100%; }
+  .onb .play { position: relative; background: linear-gradient(160deg, #efeaff, #e2f6f6 60%, #fdeee6); border-right: 1px solid var(--line); }
+  .onb .steps { padding: 34px 32px; }
+  .onb .steps h3 { margin: 0; font-size: 24px; letter-spacing: -.01em; }
+  .onb .steps p { color: var(--ink-2); font-size: 14px; line-height: 1.5; }
+  .onb .step { display: grid; grid-template-columns: 28px 1fr; gap: 12px; align-items: start; padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .onb .step b { display: grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: rgba(28,27,34,.07); font-size: 12px; }
+  .onb .step.done b { background: var(--teal); color: #fff; }
+  .onb .step.now b { background: var(--accent); color: #fff; }
+  .onb .step span { font-weight: 600; } .onb .step small { display: block; color: var(--ink-3); margin-top: 2px; font-size: 12px; font-weight: 400; }
+  .dots { display: flex; gap: 6px; } .dots i { width: 7px; height: 7px; border-radius: 50%; background: rgba(28,27,34,.2); } .dots i.on { background: var(--accent); width: 20px; border-radius: 4px; }
+</style>
+</head>
+<body>
+<div id="root"></div>
+<script src="icons.js"></script>
+<script src="matrix.js"></script>
+<script src="morph-ui.js"></script>
+<script>
+const { icon, fileIcon, fileItem, cursor, wheelHTML } = MorphUI;
+const M = window.MATRIX;
+const logo = (s = 16) => `<svg width="${s}" height="${s}" viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8f7dff"/><stop offset="1" stop-color="#2fd1c4"/></linearGradient></defs><circle cx="12" cy="12" r="8.2" fill="none" stroke="url(#lg)" stroke-width="4.2" stroke-dasharray="8.2 2.6"/><circle cx="12" cy="12" r="2.6" fill="url(#lg)"/></svg>`;
+const menubar = (app = "Finder", active = false) => `<div class="menubar"><span class="app">${app}</span><span>File</span><span>Edit</span><span>View</span><span>Go</span><span>Window</span><span>Help</span><div class="right"><span class="status${active ? " active" : ""}" aria-label="Morph">${logo(17)}</span>${icon("search", 15)}<span>Sun 18 Oct  19:40</span></div></div>`;
+const note = (n, html, x, y, w) => `<div class="note" style="left:${x}px;top:${y}px${w ? `;max-width:${w}px` : ""}"><span class="n">${n}</span>${html}</div>`;
+const caption = (html) => `<div class="caption">${html}</div>`;
+const ghost = (x, y, name, fmt, { photo, plus = false } = {}) => `<div class="ghost" style="left:${x - 34}px;top:${y - 56}px">${fileIcon(fmt, { photo })}<span class="name">${name}</span>${plus ? '<span class="plus">+</span>' : ""}</div>${cursor(x, y)}`;
+function finder({ x, y, w, h, title, files, status }) {
+  return `<div class="window finder" style="left:${x}px;top:${y}px;width:${w}px;height:${h}px">
+    <div class="side"><div class="traffic" style="position:absolute;top:18px;left:4px"><i></i><i></i><i></i></div>
+      <h4>Favorites</h4><div>${icon("folder", 15)}Desktop</div><div class="on">${icon("folder", 15)}${title}</div><div>${icon("folder", 15)}Documents</div><div>${icon("folder", 15)}Downloads</div>
+      <h4>Locations</h4><div>${icon("folder", 15)}Macintosh HD</div></div>
+    <div class="main"><div class="tb">${title}</div><div class="grid">${files}</div></div>
+    <div class="status">${status}</div></div>`;
+}
+const tripFiles = (sel = -1, dimIdx = -1, extra = "") => [
+  ["kyoto-trip.heic", "heic", "ph-1"], ["harbor.mov", "mov"], ["field-notes.pdf", "pdf"], ["mixtape.mp3", "mp3"],
+  ["budget.xlsx", "xlsx"], ["captions.srt", "srt"], ["project.zip", "zip"], ["Invoices 2026", "folder"],
+].map(([n, f, p], i) => fileItem(n, f, { photo: p, selected: i === sel, dim: i === dimIdx })).join("") + extra;
+
+const SCREENS = {
+  "01-menubar": () => `
+    ${menubar("Finder", true)}
+    ${fileItem("kyoto-trip.heic", "heic", { photo: "ph-1", wall: true, style: "position:absolute;left:1300px;top:470px" })}
+    ${fileItem("harbor.mov", "mov", { wall: true, style: "position:absolute;left:1300px;top:600px" })}
+    ${fileItem("Invoices 2026", "folder", { wall: true, style: "position:absolute;left:1300px;top:730px" })}
+    <div class="menu glass" style="left:1020px;top:36px">
+      <div class="item" style="font-weight:700">${logo(20)} Morph <span class="pill" style="margin-left:auto;background:#e3f6f3;color:var(--teal)">Ready</span></div>
+      <div style="padding:2px 10px 8px;color:var(--ink-2)">Drag any file, then tap <span class="kbd">⇧</span> <span class="kbd">⌘</span> or <span class="kbd">⌃</span></div>
+      <div class="sep"></div><h5>Recent</h5>
+      <div class="recent"><div class="th ph-1"></div><div>kyoto-trip.png<small>Converted from HEIC · 2 min ago</small></div>${icon("search", 15)}</div>
+      <div class="recent"><div class="th" style="background:#d6403f"></div><div>harbor Trimmed.mov<small>Trim video · 10 min ago</small></div>${icon("search", 15)}</div>
+      <div class="recent"><div class="th" style="background:#c8372b"></div><div>Invoices.pdf<small>Merge PDFs · 1 h ago</small></div>${icon("search", 15)}</div>
+      <div class="sep"></div>
+      <div class="item hover">${icon("keyboard", 15)} Open wheel for Finder selection <span class="sc">⌃⌥Space</span></div>
+      <div class="item">${icon("pin", 15)} Show Float shelf</div>
+      <div class="item">${icon("x", 15)} Pause Morph</div>
+      <div class="sep"></div>
+      <div class="item">${icon("settings", 15)} Settings… <span class="sc">⌘,</span></div>
+      <div class="item">Keyboard &amp; accessibility help</div>
+      <div class="item">Quit Morph <span class="sc">⌘Q</span></div>
+      <div class="foot">${icon("shield", 15)} Runs on this Mac. Files are never uploaded.</div>
+    </div>
+    ${note(1, "<b>Menu-bar app</b>, no Dock icon. Stays out of the way until the next drag.", 640, 60, 300)}
+    ${note(2, "<b>Recent jobs</b>: click to reveal the result in Finder.", 640, 210, 300)}
+    ${note(3, "<b>Keyboard path</b> for people who can't drag. Opens the same wheel for the current Finder selection.", 640, 330, 300)}
+    ${caption("<b>01 · Menu bar</b> · Recent files, keyboard path, pause, settings and a privacy promise in one place.")}`,
+
+  "02-drag-hint": () => `
+    ${menubar()}
+    ${finder({ x: 90, y: 90, w: 860, h: 560, title: "Trip", files: tripFiles(0, 0), status: "1 of 8 selected" })}
+    ${ghost(1060, 470, "kyoto-trip.heic", "heic", { photo: "ph-1" })}
+    <div class="hint glass" style="left:1000px;top:300px"><div class="keys"><span class="kbd">⇧</span> Convert <span class="kbd">⌘</span> Tools <span class="kbd">⌃</span> Actions</div><small>Tap a key while dragging. The wheel stays open.</small></div>
+    ${note(1, "<b>Drag starts in Finder</b> (or any app that drags files). Morph watches the system drag pasteboard and shows nothing until a key is tapped.", 1000, 560, 320)}
+    ${note(2, "<b>Key hint</b> shows for the first few drags only (Settings → Shortcuts).", 1000, 700, 320)}
+    ${caption("<b>02 · Drag starts</b> · The zero-click gesture: drag, tap a key, drop.")}`,
+
+  "03-wheel-convert": () => {
+    const t = M.conversions.heic; // jpg png webp tiff avif bmp pdf
+    return `${menubar()}
+    ${finder({ x: 90, y: 90, w: 760, h: 560, title: "Trip", files: tripFiles(0, 0), status: "1 of 8 selected" })}
+    ${wheelHTML({ x: 1000, y: 440, mode: "conversions", targets: t, highlighted: 1 })}
+    ${ghost(1118, 352, "kyoto-trip.heic", "heic", { photo: "ph-1", plus: true })}
+    ${note(1, `<b>Only valid targets</b>: ${t.length} for HEIC (${t.map(MorphUI.label).join(", ")}). The source format is never shown.`, 1180, 150, 230)}
+    ${note(2, "<b>Highlight</b> = accent fill + white label + centre confirmation. Colour is never the only cue.", 1180, 330, 230)}
+    ${note(3, "<b>Drop</b> to save <b>kyoto-trip.png</b> beside the original. The original is never changed.", 1180, 500, 230)}
+    ${note(4, "Legend shows the active wheel. Tap ⌘ or ⌃ mid-drag to switch.", 840, 700, 300)}
+    ${caption("<b>03 · Conversion wheel (⇧)</b> · Only valid targets are shown; the original file is never changed.")}`;
+  },
+
+  "04-wheel-tools": () => {
+    const t = M.tools.mov.single;
+    return `${menubar()}
+    ${finder({ x: 90, y: 90, w: 700, h: 560, title: "Trip", files: tripFiles(1, 1), status: "1 of 8 selected" })}
+    ${wheelHTML({ x: 980, y: 440, mode: "tools", targets: t, highlighted: 3 })}
+    ${ghost(1078, 500, "harbor.mov", "mov", { plus: true })}
+    ${note(1, `<b>File-specific tools</b>: ${t.length} for one MOV. Selecting several MOVs swaps in multi-file tools like <b>JOIN</b>.`, 1170, 150, 240)}
+    ${note(2, "Tools that need choices open a <b>tool window</b> (Trim, Crop, Speed…). One-shot tools (Mute) run immediately.", 1170, 330, 240)}
+    ${note(3, "Dense wheels (more than 7) use smaller labels. Icons are never shown without text.", 1170, 520, 240)}
+    ${caption("<b>04 · Tools wheel (⌘)</b> · Command by default; every key is configurable in Settings.")}`;
+  },
+
+  "05-wheel-actions": () => {
+    const t = Object.keys(M.actionDefs);
+    return `${menubar()}
+    ${finder({ x: 90, y: 90, w: 700, h: 560, title: "Trip", files: tripFiles(7, 7), status: "1 of 8 selected" })}
+    ${wheelHTML({ x: 980, y: 440, mode: "actions", targets: t, highlighted: 1, center: {} })}
+    ${ghost(1078, 383, "Invoices 2026", "folder", { plus: true })}
+    ${note(1, "<b>Actions work on anything</b>: folders, mixed selections, formats with no conversions.", 1170, 150, 240)}
+    ${note(2, t.map((k) => `<b>${M.actionDefs[k].name}</b>: ${M.actionDefs[k].description}`).join("<br>"), 1150, 300, 270)}
+    ${caption("<b>05 · Actions wheel (⌃)</b> · Six actions that work on any file, folder or mixed selection.")}`;
+  },
+
+  "06-wheel-states": () => `
+    <div class="cell" style="left:0;top:0"><div class="wrap">${wheelHTML({ x: 360, y: 215, mode: "conversions", targets: M.conversions.jpg, center: { thumb: "ph-1", text: "4.8 MB" } })}</div><h3>A · Idle (nothing highlighted)</h3><p>Centre shows the dragged file and its size.</p></div>
+    <div class="cell" style="left:720px;top:0"><div class="wrap">${wheelHTML({ x: 360, y: 215, mode: "tools", targets: M.tools.jpg.multi, center: { thumb: "ph-3", text: "3 files" } })}</div><h3>B · Multiple files (3 JPGs)</h3><p>Multi-file tools only: ${M.tools.jpg.multi.map((k) => M.toolDefs[k].name).join(", ")}.</p></div>
+    <div class="cell" style="left:0;top:450px"><div class="wrap">${wheelHTML({ x: 360, y: 215, mode: "tools", targets: [], emptyText: "No editing tools for TXT.<br>Tap ⇧ to convert or ⌃ for actions." })}</div><h3>C · Empty state</h3><p>Always tells the user which wheel has options.</p></div>
+    <div class="cell" style="left:720px;top:450px"><div class="wrap">${wheelHTML({ x: 360, y: 215, mode: "conversions", targets: M.conversions.mp3, highlighted: 0, contrast: true })}</div><h3>D · Increase Contrast / Reduce Transparency</h3><p>Solid fills and 1.5 pt outlines when either system setting is on.</p></div>
+    <div class="divider-v"></div><div class="divider-h"></div>`,
+
+  "07-progress": () => `
+    ${menubar()}
+    ${fileItem("kyoto-trip.heic", "heic", { photo: "ph-1", wall: true, style: "position:absolute;left:180px;top:200px" })}
+    ${fileItem("kyoto-trip.png", "png", { photo: "ph-1", wall: true, selected: true, style: "position:absolute;left:310px;top:200px" })}
+    <div class="hud glass" style="left:1080px;top:46px"><div class="t"><span class="badge">${icon("chevron", 13)}</span>Converting to PNG<span class="closebtn" aria-label="Cancel">${icon("x", 12)}</span></div><div class="sub"><span>kyoto-trip.heic</span><span>62%</span></div><div class="bar"><b style="width:62%"></b></div></div>
+    <div class="hud glass" style="left:1080px;top:140px"><div class="t"><span class="badge">${icon("compress", 13)}</span>Compressing 3 videos<span class="closebtn">${icon("x", 12)}</span></div><div class="sub"><span>1 of 3 · harbor.mov</span><span>38%</span></div><div class="bar"><b style="width:38%"></b></div></div>
+    <div class="hud glass ok" style="left:1080px;top:234px"><div class="t"><span class="badge">${icon("check", 13)}</span>Saved kyoto-trip.png<span class="closebtn">${icon("x", 12)}</span></div><div class="sub"><span>Beside the original · 1.9 MB</span><span class="btn ghost" style="height:20px;padding:0">Show in Finder</span></div></div>
+    <div class="hud glass err" style="left:1080px;top:320px"><div class="t"><span class="badge">${icon("alert", 13)}</span>Couldn't convert lecture.wma<span class="closebtn">${icon("x", 12)}</span></div><div class="sub"><span>The file looks damaged. The original is unchanged.</span></div><div class="row" style="margin-top:8px"><span class="btn" style="height:24px">Details</span><span class="btn" style="height:24px">Try again</span></div></div>
+    ${note(1, "<b>One small window per job</b>, with a progress bar, cancel (×), and the result revealed in Finder. Jobs run in the background.", 700, 60, 340)}
+    ${note(2, "<b>Batches</b> show the count and current file. Jobs run in a queue (two at a time by default).", 700, 170, 340)}
+    ${note(3, "<b>Errors</b> use plain language, keep the original, and offer details (engine log) plus retry.", 700, 300, 340)}
+    ${note(4, "Progress text and value are exposed to VoiceOver. Completion is announced, not just shown.", 700, 420, 340)}
+    ${caption("<b>07 · Job progress HUDs</b> · Layout and copy are Morph proposals.")}`,
+
+  "08-result-finder": () => `
+    ${menubar()}
+    ${finder({ x: 120, y: 80, w: 1000, h: 620, title: "Trip", status: "1 of 12 selected, 212 GB available", files: [
+      ["kyoto-trip.heic", "heic", "ph-1"], ["kyoto-trip.png", "png", "ph-1", 1], ["kyoto-trip 2.png", "png", "ph-1"], ["harbor.mov", "mov"],
+      ["harbor Trimmed.mov", "mov"], ["harbor Compressed.mov", "mov"], ["field-notes.pdf", "pdf"], ["field-notes Pages", "folder"],
+      ["mixtape.mp3", "mp3"], ["mixtape Normalized.mp3", "mp3"], ["project.zip", "zip"], ["project Extracted", "folder"],
+    ].map(([n, f, p, s]) => fileItem(n, f, { photo: p, selected: !!s })).join("") })}
+    ${note(1, "<b>Conversions</b> keep the name and change the extension. On a clash: <b>“kyoto-trip 2.png”</b>.", 1150, 120, 260)}
+    ${note(2, "<b>Tools</b> add a suffix: Trimmed, Compressed, Normalized, Cropped, No Metadata, Bleeped…", 1150, 260, 260)}
+    ${note(3, "<b>Split / Extract / Split PDF</b> write a new folder: “… Clips”, “… Extracted”, “… Pages”.", 1150, 400, 260)}
+    ${note(4, "Originals are never modified. The new file is selected and revealed.", 1150, 540, 260)}
+    ${caption("<b>08 · Results beside the original</b> · Predictable names; nothing is ever overwritten.")}`,
+
+  "09-tool-compress": () => `
+    ${menubar()}
+    <div class="window" style="left:420px;top:110px;width:540px;height:600px">
+      <div class="titlebar"><span class="closebtn">${icon("x", 14)}</span><h2>Compress</h2><span></span></div>
+      <div class="win-body stack" style="gap:14px">
+        <div class="row"><div class="ph-1" style="width:48px;height:48px;border-radius:9px"></div><div><b>kyoto-trip.jpg</b><div class="muted">Original 4.8 MB · 4032 × 3024</div></div></div>
+        <div class="hr" style="margin:2px 0"></div>
+        <div class="row"><span class="label" style="width:110px">Goal</span><span class="seg"><span class="on">Preset</span><span>Target size</span><span>Percentage</span></span></div>
+        <div class="row"><span class="label" style="width:110px">Preset</span><span class="seg"><span class="on">Balanced</span><span>Strong</span><span>Smallest</span></span></div>
+        <div class="row"><span style="width:110px"></span><span class="muted">Smaller file, little visible quality loss.</span></div>
+        <div class="row"><span class="label" style="width:110px">Image size</span><span class="popup">Keep original dimensions ${icon("chevron", 13)}</span></div>
+        <div class="row"><span class="label" style="width:110px">Metadata</span><span class="check on"><i></i>Keep camera &amp; date info</span></div>
+        <div class="hr" style="margin:2px 0"></div>
+        <div class="row" style="justify-content:space-between"><span class="label">Estimated result</span><span><b>≈ 1.6 MB</b> <span class="pill" style="background:#e3f6f3;color:var(--teal)">−67%</span></span></div>
+        <div class="muted">Saves as <b style="color:var(--ink)">kyoto-trip Compressed.jpg</b> next to the original.</div>
+      </div>
+      <div class="win-foot" style="position:absolute;bottom:0;left:0;right:0"><span class="btn">Reset</span><span class="spacer"></span><span class="btn">Cancel</span><span class="btn primary">Compress</span></div>
+    </div>
+    ${note(1, "Window opens <b>at the drop point</b>, focused. Return = Compress, Esc = Cancel.", 990, 130, 260)}
+    ${note(2, "Three goal modes: preset, target size or percentage. Resize while compressing.", 990, 250, 260)}
+    ${note(3, "<b>Estimate</b> comes from a fast trial encode of a downscaled sample (Morph proposal).", 990, 380, 260)}
+    ${caption("<b>09 · Tool window: Compress</b> · Shared tool-window pattern: close, title, body, primary action bottom-right.")}`,
+
+  "10-tool-trim": () => `
+    ${menubar()}
+    <div class="window" style="left:380px;top:70px;width:620px;height:780px">
+      <div class="titlebar"><span class="closebtn">${icon("x", 14)}</span><h2>Trim Video</h2><span></span></div>
+      <div class="win-body stack" style="gap:12px">
+        <div class="ph-2" style="height:330px;border-radius:12px;display:grid;place-items:center"><span style="width:56px;height:56px;border-radius:50%;background:rgba(0,0,0,.35);display:grid;place-items:center;color:#fff">${icon("play", 24)}</span></div>
+        <div class="row" style="justify-content:space-between"><span class="label">Drag the ends to trim</span><span style="font-variant-numeric:tabular-nums"><b>0:12.40</b> selected</span></div>
+        <div style="position:relative;overflow:hidden;border-radius:8px"><div class="film">${Array.from({ length: 10 }, (_, i) => `<div class="ph-${(i % 5) + 1}"></div>`).join("")}</div><div class="trimsel" style="left:18%;right:22%"></div><div class="playhead" style="left:44%"></div></div>
+        <div class="row" style="justify-content:space-between"><span class="row"><span class="label">Start</span><span class="field" style="font-family:var(--mono)">0:03.10</span></span><span class="row"><span class="btn">${icon("stepBack", 14)}</span><span class="btn">${icon("play", 14)}</span><span class="btn">${icon("stepFwd", 14)}</span></span><span class="row"><span class="label">End</span><span class="field" style="font-family:var(--mono)">0:15.50</span></span></div>
+        <div class="muted" style="font-size:12px">Keyboard: <span class="kbd">←</span> <span class="kbd">→</span> step a frame · <span class="kbd">I</span> <span class="kbd">O</span> set start / end · <span class="kbd">Space</span> play</div>
+        <div class="muted">Saves as <b style="color:var(--ink)">harbor Trimmed.mov</b>. Lossless cut when the cut points land on keyframes. Otherwise only the edges are re-encoded.</div>
+      </div>
+      <div class="win-foot" style="position:absolute;bottom:0;left:0;right:0"><span class="btn">Reset</span><span class="spacer"></span><span class="btn">Cancel</span><span class="btn primary">Apply</span></div>
+    </div>
+    ${note(1, "Filmstrip plus handles, frame stepping, and exact timecodes: everything needed for a precise cut.", 1030, 140, 290)}
+    ${note(2, "Handles are AX adjustable elements (VoiceOver: “Start, 3.1 seconds, adjustable”).", 1030, 280, 290)}
+    ${note(3, "Edge re-encode strategy is a Morph engineering choice (ffmpeg stream-copy plus a partial re-encode).", 1030, 400, 290)}
+    ${caption("<b>10 · Tool window: Trim Video</b>")}`,
+
+  "11-float-shelf": () => `
+    ${menubar("Mail")}
+    <div class="window" style="left:150px;top:90px;width:820px;height:600px">
+      <div class="titlebar" style="grid-template-columns:90px 1fr 90px"><div class="traffic"><i></i><i></i><i></i></div><h2>New Message</h2><span></span></div>
+      <div class="win-body stack" style="gap:0">
+        ${["To: Aiko", "Subject: Trip photos + notes"].map((t) => `<div style="padding:10px 0;border-bottom:1px solid var(--line);color:var(--ink-2)">${t}</div>`).join("")}
+        <div style="height:380px;margin-top:16px;border:2px dashed rgba(91,71,245,.45);border-radius:12px;display:grid;place-items:center;color:var(--accent-ink);font-weight:600;background:rgba(91,71,245,.05)">Drop to attach</div>
+      </div>
+    </div>
+    <div class="shelf glass" style="left:1310px;top:180px"><header>${icon("pin", 13)} Float</header>
+      ${fileItem("kyoto-trip.png", "png", { photo: "ph-1" })}${fileItem("field-notes.pdf", "pdf")}${fileItem("harbor Trimmed.mov", "mov", { dim: true })}
+      <span class="btn" style="height:24px;font-size:12px">Clear</span></div>
+    ${ghost(760, 420, "harbor Trimmed.mov", "mov", { plus: true })}
+    ${note(1, "<b>Float</b> keeps files in a shelf pinned to a screen edge. Drag them out into any app.", 990, 520, 290)}
+    ${note(2, "The shelf holds file references, not copies. Items show “missing” if the file moves.", 990, 650, 290)}
+    ${caption("<b>11 · Float shelf (⌃ → Float)</b>")}`,
+
+  "12-settings": () => `
+    ${menubar("Morph")}
+    <div class="window settings" style="left:290px;top:110px;width:860px;height:640px">
+      <div class="nav"><div class="traffic" style="position:absolute;top:18px;left:14px"><i></i><i></i><i></i></div>
+        <div>${icon("settings", 15)}General</div><div class="on">${icon("keyboard", 15)}Shortcuts</div><div>${icon("folder", 15)}Output</div><div>${icon("redactImage", 15)}Accessibility</div><div>${icon("shield", 15)}Privacy</div><div>${logo(15)}About</div></div>
+      <div class="content">
+        <h3>Shortcuts</h3><div class="muted">Tap a key while dragging a file to open a wheel.</div>
+        <div class="grp">
+          <div class="r"><span><b>Conversions</b><small>Formats you can convert to</small></span><span class="sp"></span><span class="popup"><span class="kbd">⇧</span> Shift ${icon("chevron", 13)}</span></div>
+          <div class="r"><span><b>File tools</b><small>Compress, trim, crop, metadata…</small></span><span class="sp"></span><span class="popup"><span class="kbd">⌘</span> Command ${icon("chevron", 13)}</span></div>
+          <div class="r"><span><b>File actions</b><small>AirDrop, Float, Copy, Move, Copy Path, Terminal</small></span><span class="sp"></span><span class="popup"><span class="kbd">⌃</span> Control ${icon("chevron", 13)}</span></div>
+        </div>
+        <div class="grp">
+          <div class="r"><span><b>Open wheel for Finder selection</b><small>Keyboard alternative to dragging</small></span><span class="sp"></span><span class="recorder"><span class="kbd">⌃</span><span class="kbd">⌥</span><span class="kbd">Space</span></span><span class="btn" style="height:24px">Record</span></div>
+          <div class="r"><span><b>Show key hint while dragging</b><small>Shown for your first 10 drags</small></span><span class="sp"></span><span class="toggle on"></span></div>
+          <div class="r"><span><b>Tick sound on highlight</b></span><span class="sp"></span><span class="toggle on"></span></div>
+          <div class="r"><span><b>Hold-to-open</b><small>Open the wheel only while the key is held (off = tap once, stays open)</small></span><span class="sp"></span><span class="toggle"></span></div>
+        </div>
+        <div class="muted" style="margin-top:12px;font-size:12px">Each wheel needs a different modifier key. Fn and Caps Lock can't be used.</div>
+      </div>
+    </div>
+    ${note(1, "Each wheel gets its own modifier key; changes apply immediately.", 1170, 150, 250)}
+    ${note(2, "“Tap once, stays open” is the default and helps users who can't hold two inputs at once.", 1170, 330, 250)}
+    ${caption("<b>12 · Settings → Shortcuts</b>")}`,
+
+  "13-onboarding": () => `
+    <div class="window" style="left:270px;top:140px;width:900px;height:580px">
+      <div class="onb">
+        <div class="play">
+          ${fileItem("try-me.png", "png", { photo: "ph-5", style: "position:absolute;left:70px;top:90px" })}
+          <svg style="position:absolute;left:150px;top:120px" width="220" height="200" viewBox="0 0 220 200" fill="none" stroke="#5b47f5" stroke-width="2.5" stroke-dasharray="6 6" stroke-linecap="round"><path d="M10 40 C 120 20, 200 80, 190 180"/><path d="M180 168 L190 182 L200 166"/></svg>
+          <div style="position:absolute;inset:0;transform:scale(.62);transform-origin:300px 380px">${wheelHTML({ x: 300, y: 380, mode: "conversions", targets: M.conversions.png, highlighted: 0, legend: false })}</div>
+        </div>
+        <div class="steps">
+          <div class="dots"><i></i><i class="on"></i><i></i></div>
+          <h3 style="margin-top:18px">Try it once</h3>
+          <p>Morph has no window to open. You use it in the middle of a drag.</p>
+          <div class="step done"><b>✓</b><span>Drag the sample file<small>Any file, from Finder or your desktop</small></span></div>
+          <div class="step now"><b>2</b><span>Tap <span class="kbd">⇧</span> while still dragging<small>The wheel appears around your pointer and stays open</small></span></div>
+          <div class="step"><b>3</b><span>Drop on <b>JPG</b><small>The new file is saved beside the original</small></span></div>
+          <div class="row" style="margin-top:16px;color:var(--teal);font-weight:600">${icon("shield", 16)} No uploads. Morph never connects to the internet to process files.</div>
+        </div>
+      </div>
+      <div class="win-foot" style="position:absolute;bottom:0;left:0;right:0;background:rgba(255,255,255,.7)"><span class="muted">Step 2 of 3</span><span class="spacer"></span><span class="btn">Skip</span><span class="btn primary">Continue</span></div>
+    </div>
+    ${caption("<b>13 · First run</b> · Morph proposal: practice inside the app before using it in Finder.")}`,
+
+  "14-keyboard-a11y": () => {
+    const t = M.conversions.jpg;
+    return `${menubar("Finder", true)}
+    ${finder({ x: 90, y: 90, w: 760, h: 560, title: "Trip", files: tripFiles(0), status: "1 of 8 selected" })}
+    ${wheelHTML({ x: 1050, y: 400, mode: "conversions", targets: t, focused: 1 })}
+    <div class="vo"><small>VoiceOver</small>Convert to ${MorphUI.label(t[1])}, menu item 2 of ${t.length}. Press Return to convert, Escape to cancel. Command for tools, Control for actions.</div>
+    ${note(1, "<b>⌃⌥Space</b> opens the wheel for the Finder selection. No drag needed.", 1230, 140, 190)}
+    ${note(2, "<b>Arrows</b> move · <b>Return</b> applies · <b>Esc</b> cancels · <b>⇧ ⌘ ⌃</b> switch wheels", 1230, 290, 190)}
+    ${note(3, "Focus ring is drawn in addition to the fill, so it's visible under Increase Contrast.", 1230, 440, 190)}
+    ${note(4, "Also available: Finder → Quick Actions → <b>Convert with Morph…</b>", 90, 680, 360)}
+    ${caption("<b>14 · Keyboard and VoiceOver</b> · Everything works without a mouse.")}`;
+  },
+};
+
+const id = decodeURIComponent(location.hash.slice(1)) || "03-wheel-convert";
+const calm = ["06-wheel-states", "13-onboarding"].includes(id);
+document.getElementById("root").innerHTML = `<div class="desktop${calm ? " calm" : ""}">${SCREENS[id]()}</div>`;
+document.title = id;
+window.SCREEN_IDS = Object.keys(SCREENS);
+</script>
+</body>
+</html>

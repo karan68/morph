@@ -1,0 +1,50 @@
+name: build-mac
+
+on:
+  push:
+    branches: [main]
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  deps:
+    name: Third-party tools (LGPL FFmpeg, codecs, bsdtar)
+    runs-on: macos-15
+    concurrency:
+      group: deps-${{ hashFiles('scripts/build-deps.sh', 'scripts/deps-versions.env') }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - id: cache
+        uses: actions/cache@v4
+        with:
+          path: vendor-out
+          key: deps-macos13-arm64-${{ hashFiles('scripts/build-deps.sh', 'scripts/deps-versions.env') }}
+      - name: Build deps
+        if: steps.cache.outputs.cache-hit != 'true'
+        run: |
+          brew list pkgconf >/dev/null 2>&1 || brew list pkg-config >/dev/null 2>&1 || brew install pkgconf
+          scripts/build-deps.sh "$PWD/vendor-out"
+      - name: Show deps
+        run: |
+          ls -la vendor-out/Helpers vendor-out/Frameworks
+          vendor-out/Helpers/ffmpeg -hide_banner -version | head -1
+
+  build:
+    name: Build & test
+    needs: deps
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: vendor-out
+          key: deps-macos13-arm64-${{ hashFiles('scripts/build-deps.sh', 'scripts/deps-versions.env') }}
+          fail-on-cache-miss: true
+      - name: Toolchain
+        run: swift --version && sw_vers
+      - name: Build
+        run: swift build -c release
