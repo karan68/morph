@@ -34,7 +34,7 @@ jobs:
           vendor-out/Helpers/ffmpeg -hide_banner -version | head -1
 
   build:
-    name: Build & test
+    name: Build, test, package, golden matrix
     needs: deps
     runs-on: macos-15
     steps:
@@ -45,6 +45,101 @@ jobs:
           key: deps-macos13-arm64-${{ hashFiles('scripts/build-deps.sh', 'scripts/deps-versions.env') }}
           fail-on-cache-miss: true
       - name: Toolchain
-        run: swift --version && sw_vers
-      - name: Build
+        run: swift --version && sw_vers && uname -m
+
+      - name: Version
+        id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then V="${GITHUB_REF#refs/tags/v}"; V="${V%%-*}"; else V="0.1.0"; fi
+          echo "version=$V" >> "$GITHUB_OUTPUT"
+
+      - name: Build (release)
         run: swift build -c release
+
+      - name: Unit tests (CoreTests + EngineTests)
+        run: swift test 2>&1 | tail -60; exit ${PIPESTATUS[0]}
+
+      - name: Package Morph.app + DMG (ad-hoc, hardened runtime, inside-out signing)
+        run: scripts/make-app-bundle.sh "$(swift build -c release --show-bin-path)" vendor-out "${{ steps.v.outputs.version }}" "$GITHUB_RUN_NUMBER" dist
+
+      - name: Self-test the signed bundle (launch + every helper loads its dylibs)
+        run: dist/Morph.app/Contents/MacOS/Morph --self-test | tee dist/self-test.json; exit ${PIPESTATUS[0]}
+
+      - name: Static no-network check (all binaries + dylibs)
+        run: scripts/check-no-network.sh dist/Morph.app | tee dist/no-network.txt; exit ${PIPESTATUS[0]}
+
+      - name: Corpus (synthetic, one sample per M1 input format)
+        env:
+          MORPH_TOOLS_DIR: ${{ github.workspace }}/vendor-out/Helpers
+        run: scripts/make-corpus.sh matrix-out/corpus "$(swift build -c release --show-bin-path)/MorphCLI" vendor-out/sources/libarchive-3.7.7.tar.xz
+
+      - name: Golden matrix with network denied by the OS (sandbox-exec)
+        env:
+          MORPH_TOOLS_DIR: ${{ github.workspace }}/vendor-out/Helpers
+        run: |
+          PROFILE='(version 1)(allow default)(deny network*)'
+          # Prove the profile really blocks network before trusting it.
+          if sandbox-exec -p "$PROFILE" curl -sS -m 10 -o /dev/null https://www.apple.com 2>/dev/null; then
+            echo "sandbox profile did NOT block network" >&2; exit 1
+          fi
+          echo "network-deny profile verified (curl blocked)"
+          set +e
+          sandbox-exec -p "$PROFILE" python3 scripts/run-matrix.py "$(swift build -c release --show-bin-path)/MorphCLI" matrix-out/corpus matrix-out/run
+          rc=$?
+          cat matrix-out/run/report.md >> "$GITHUB_STEP_SUMMARY"
+          cp matrix-out/run/report.md dist/golden-matrix-report.md
+          exit $rc
+
+      - name: CLI for OS probes
+        if: always()
+        run: mkdir -p probe && cp "$(swift build -c release --show-bin-path)/MorphCLI" probe/ || true
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Morph-${{ steps.v.outputs.version }}-build${{ github.run_number }}
+          path: |
+            dist/*.dmg
+            dist/*.sha256
+            dist/*.json
+            dist/*.txt
+            dist/*.md
+            matrix-out/run/results.json
+            matrix-out/run/caps.json
+          if-no-files-found: warn
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: morph-cli
+          path: probe/MorphCLI
+          if-no-files-found: ignore
+
+      - name: Release (tags only)
+        if: startsWith(github.ref, 'refs/tags/v')
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${{ steps.v.outputs.version }}"
+          mkdir -p rel && cp vendor-out/CONFIGURE.txt vendor-out/sources/
+          (cd vendor-out && zip -qr "../rel/Morph-$V-third-party-sources.zip" sources)
+          gh release create "$GITHUB_REF_NAME" --prerelease --title "Morph $GITHUB_REF_NAME (friends alpha)" \
+            --notes-file docs/RELEASE-NOTES.md \
+            "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip"
+
+  os-probe:
+    name: ImageIO capabilities on ${{ matrix.os }} (spec R5)
+    needs: build
+    if: always() && needs.build.result != 'cancelled'
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-14, macos-26]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with: { name: morph-cli }
+      - run: |
+          chmod +x MorphCLI
+          sw_vers
+          ./MorphCLI caps | tee caps.json
+          python3 -c "import json; c=json.load(open('caps.json')); print('### ${{ matrix.os }}: M1 conversion paths available:', c['conversionPaths'], '— unavailable targets:', c['unavailableTargets'])" >> "$GITHUB_STEP_SUMMARY"

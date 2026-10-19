@@ -6,7 +6,15 @@ cd "$(dirname "$0")/.."
 OUT=.build/typecheck
 mkdir -p "$OUT"
 TARGET="arm64-apple-macos13.0"
-SDK="$(xcrun --show-sdk-path)"
+# The macOS 27 SDK implements SwiftUI property wrappers as macros whose plugin ships only with full Xcode;
+# prefer an older SDK from the Command Line Tools when present (CI uses full Xcode).
+SDK="${MORPH_SDK:-}"
+if [ -z "$SDK" ]; then
+  for s in /Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk /Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk; do
+    [ -d "$s" ] && SDK=$s && break
+  done
+  SDK="${SDK:-$(xcrun --show-sdk-path)}"
+fi
 common=(-target "$TARGET" -sdk "$SDK" -swift-version 5 -I "$OUT" -module-cache-path "$OUT/cache" -suppress-warnings)
 
 module() { # name deps...

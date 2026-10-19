@@ -1,0 +1,31 @@
+name: Tester report
+description: Report a problem or feedback from testing Morph
+labels: ["tester-report"]
+body:
+  - type: input
+    id: macos
+    attributes: { label: macOS version, placeholder: "e.g. macOS 14.6.1" }
+    validations: { required: true }
+  - type: input
+    id: mac
+    attributes: { label: Mac model, placeholder: "e.g. MacBook Air M2, 2022" }
+    validations: { required: true }
+  - type: input
+    id: version
+    attributes: { label: Morph version, description: "Menu-bar icon → Settings… → About" }
+  - type: textarea
+    id: steps
+    attributes: { label: Steps, description: "What did you drag, which key, where did you drop?" }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected }
+  - type: textarea
+    id: actual
+    attributes: { label: What happened }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs (optional)
+      description: "Run: log show --last 10m --predicate 'process == \"Morph\"' > morph-log.txt and attach the file"

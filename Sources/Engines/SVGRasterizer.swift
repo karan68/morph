@@ -23,6 +23,7 @@ public final class SVGRasterizer: NSObject, WKNavigationDelegate {
         let scale = min(1, maxDimension / max(size.width, size.height))
         let w = max(1, (size.width * scale).rounded()), h = max(1, (size.height * scale).rounded())
         let config = WKWebViewConfiguration()
+        config.websiteDataStore = .nonPersistent()
         let wv = WKWebView(frame: CGRect(x: 0, y: 0, width: w, height: h), configuration: config)
         wv.navigationDelegate = self
         webView = wv
@@ -37,13 +38,16 @@ public final class SVGRasterizer: NSObject, WKNavigationDelegate {
         guard let wv = webView else { return nil }
         let b64 = Data(svg.utf8).base64EncodedString()
         let html = """
-        <!doctype html><html><head><meta charset="utf-8"><style>html,body{margin:0;padding:0;background:\(background);overflow:hidden}
+        <!doctype html><html><head><meta charset="utf-8">
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src data:; style-src 'unsafe-inline'">
+        <style>html,body{margin:0;padding:0;background:\(background);overflow:hidden}
         img{display:block;width:\(Int(w))px;height:\(Int(h))px}</style></head>
         <body><img src="data:image/svg+xml;base64,\(b64)"></body></html>
         """
         try await withCheckedThrowingContinuation { (c: CheckedContinuation<Void, Error>) in
             continuation = c
-            wv.loadHTMLString(html, baseURL: base.deletingLastPathComponent())
+            // No base URL + CSP above: the SVG can't pull remote resources (spec §7.3, local-only).
+            wv.loadHTMLString(html, baseURL: nil)
         }
         // Give the image decode a frame to settle.
         try await Task.sleep(nanoseconds: 50_000_000)
