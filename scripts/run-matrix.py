@@ -38,6 +38,10 @@ def case(group, name, src, cli_args, kind, target, expect_outputs=1):
     code, so, se, dt = run(cli_args(local))
     rec = {"group": group, "name": name, "ok": False, "seconds": round(dt, 2), "detail": ""}
     outs = [l for l in so.splitlines() if l.strip()]
+    # Keep input/output pairs (relative to the run dir) for independent verification on another machine.
+    rec["inputs"] = [os.path.relpath(x, out) for x in local]
+    rec["outputs"] = [os.path.relpath(o, out) for o in outs if os.path.exists(o)]
+    rec["target"] = target
     if code != 0:
         rec["detail"] = (se.splitlines() or ["exit %d" % code])[0][:300]
         rec["log"] = se[-2000:]

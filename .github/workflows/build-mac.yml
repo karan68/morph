@@ -163,6 +163,40 @@ jobs:
         with:
           name: golden-matrix-macos26
           path: matrix-out/run/report.md
+      - name: Publish the actual converted files (for independent verification)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: conversion-outputs-macos26
+          path: |
+            matrix-out/run/results.json
+            matrix-out/run/work/convert-*
+
+  verify-independent:
+    name: Independent proof — real conversions, not renames (Linux, different tools)
+    needs: matrix-macos26
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: conversion-outputs-macos26, path: run }
+      - name: Install independent decoders (Ubuntu's own builds)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg file python3-pil python3-numpy librsvg2-bin poppler-utils \
+            libheif-examples libheif-plugin-dav1d libheif-plugin-libde265 libarchive-tools >/dev/null
+      - name: Verify every conversion + rename controls
+        run: |
+          set +e
+          python3 scripts/verify-conversions.py run proof
+          rc=$?
+          cat proof/conversion-proof.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: conversion-proof
+          path: proof/
 
   os-probe:
     name: ImageIO capabilities on ${{ matrix.os }} (spec R5)
