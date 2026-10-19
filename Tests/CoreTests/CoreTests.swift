@@ -319,3 +319,62 @@ final class RecipeTests: XCTestCase {
         XCTAssertEqual(CropAspect.square.centeredRect(width: 400, height: 300).w, 300)
     }
 }
+
+final class MetadataCarryTests: XCTestCase {
+    func pngChunk(_ t: String, _ d: [UInt8]) -> [UInt8] {
+        let n = d.count
+        var c: [UInt8] = [UInt8(n >> 24), UInt8(n >> 16 & 0xFF), UInt8(n >> 8 & 0xFF), UInt8(n & 0xFF)]
+        c += Array(t.utf8); c += d; c += [0, 0, 0, 0]
+        return c
+    }
+    let sig: [UInt8] = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]
+
+    func types(_ d: Data) -> [String] { (MetadataCarry.pngChunks([UInt8](d)) ?? []).map(\.0) }
+
+    func testPNGCarriesExifTextAndColourBeforePalette() {
+        var src = sig
+        src += pngChunk("IHDR", [UInt8](repeating: 1, count: 13))
+        src += pngChunk("iCCP", [7, 7])
+        src += pngChunk("eXIf", Array("GPS".utf8))
+        src += pngChunk("tEXt", Array("Author\u{0}me".utf8))
+        src += pngChunk("IDAT", [1])
+        src += pngChunk("IEND", [])
+        var dst = sig
+        dst += pngChunk("IHDR", [UInt8](repeating: 2, count: 13))
+        dst += pngChunk("sRGB", [0])
+        dst += pngChunk("PLTE", [1, 2, 3])
+        dst += pngChunk("IDAT", [9, 9])
+        dst += pngChunk("IEND", [])
+        let out = MetadataCarry.png(from: Data(src), into: Data(dst))
+        XCTAssertEqual(types(out), ["IHDR", "iCCP", "eXIf", "tEXt", "PLTE", "IDAT", "IEND"], "sRGB replaced by source iCCP; metadata before PLTE")
+        XCTAssertEqual(MetadataCarry.pngChunks([UInt8](out))?[0].1.dropFirst(8).first, 2, "target IHDR kept")
+        XCTAssertEqual(MetadataCarry.png(from: Data(dst), into: Data(dst)), Data(dst), "nothing to carry → unchanged")
+    }
+
+    func riff(_ chunks: [(String, [UInt8])]) -> Data {
+        var body: [UInt8] = Array("WEBP".utf8)
+        for (cc, p) in chunks {
+            let n = p.count
+            body += Array(cc.utf8); body += [UInt8(n & 0xFF), UInt8(n >> 8 & 0xFF), 0, 0]; body += p
+            if n & 1 == 1 { body.append(0) }
+        }
+        var d: [UInt8] = Array("RIFF".utf8)
+        d += [UInt8(body.count & 0xFF), UInt8(body.count >> 8 & 0xFF), UInt8(body.count >> 16 & 0xFF), 0]
+        d += body
+        return Data(d)
+    }
+
+    func testWebPCarriesExifIntoSimpleFormatWithNewVP8X() {
+        let src = riff([("VP8X", [0x08, 0, 0, 0, 0, 0, 0, 0, 0, 0]), ("VP8 ", [0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), ("EXIF", Array("Exif-GPS".utf8))])
+        // simple VP8: 640x480 → bytes 6..9 = width/height (14 bits)
+        let vp8: [UInt8] = [0x9D, 0x01, 0x2A, 0, 0, 0, 0x80, 0x02, 0xE0, 0x01]
+        let dst = riff([("VP8 ", vp8)])
+        let out = MetadataCarry.webp(from: src, into: dst)
+        let ch = MetadataCarry.riffChunks([UInt8](out)) ?? []
+        XCTAssertEqual(ch.map(\.0), ["VP8X", "VP8 ", "EXIF"])
+        XCTAssertEqual(ch[0].1[0] & 0x08, 0x08, "EXIF flag set")
+        XCTAssertEqual(Int(ch[0].1[4]) | Int(ch[0].1[5]) << 8, 639, "canvas width-1")
+        XCTAssertEqual(Int(ch[0].1[7]) | Int(ch[0].1[8]) << 8, 479, "canvas height-1")
+        XCTAssertEqual(Int(out[4]) | Int(out[5]) << 8 | Int(out[6]) << 16, out.count - 8, "RIFF size")
+    }
+}

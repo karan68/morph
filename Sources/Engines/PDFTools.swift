@@ -15,15 +15,27 @@ public enum PDFTools {
         }
         var opts: [PDFDocumentWriteOption: Any] = [.saveImagesAsJPEGOption: true]
         if options.preset != .balanced || options.goal != .preset { opts[.optimizeImagesForScreenOption] = true }
-        if !options.keepMetadata { doc.documentAttributes = [:] }
-        guard doc.write(to: output, withOptions: opts) else { throw JobFailure("macOS couldn't save the compressed PDF.") }
+        let target = options.keepMetadata ? doc : try rebuilt(from: doc)
+        guard target.write(to: output, withOptions: opts) else { throw JobFailure("macOS couldn't save the compressed PDF.") }
+    }
+
+    /// A new document containing copies of the pages only. Document-level metadata (Info dictionary and the XMP
+    /// packet in the catalog) stays behind with the original.
+    static func rebuilt(from doc: PDFDocument) throws -> PDFDocument {
+        let fresh = PDFDocument()
+        for i in 0..<doc.pageCount {
+            guard let page = doc.page(at: i)?.copy() as? PDFPage else { throw JobFailure("Morph couldn't read page \(i + 1).") }
+            fresh.insert(page, at: fresh.pageCount)
+        }
+        fresh.documentAttributes = [:]
+        return fresh
     }
 
     public static func removeMetadata(_ input: URL, output: URL) throws {
         guard let doc = PDFDocument(url: input) else { throw JobFailure("Morph couldn't open this PDF.") }
         if doc.isLocked { throw JobFailure("This PDF is password-protected.") }
-        doc.documentAttributes = [:]
-        guard doc.write(to: output) else { throw JobFailure("macOS couldn't save the PDF.") }
+        let fresh = try rebuilt(from: doc)
+        guard fresh.pageCount == doc.pageCount, fresh.write(to: output) else { throw JobFailure("macOS couldn't save the PDF.") }
     }
 
     public static func readMetadata(_ url: URL) -> [(group: String, key: String, value: String)] {

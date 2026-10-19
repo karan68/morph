@@ -63,6 +63,18 @@ for f in mp4 mov mkv; do
 done
 note "nasa-ksc-swearing-in.mp4/.mov/.mkv: first 40 s of the real WebM transcoded (H.264 + AAC, keyframe every 60 frames) + title/comment tags"
 
+"$CLI" convert "$J" pdf >/dev/null
+note "jellyfish-panasonic-gps.pdf: the real photo placed in a PDF by morph-cli convert (lossless image inside)"
+q -t 3 -i "$V" -vf "fps=10,scale=320:-2:flags=lanczos,split[a][b];[a]palettegen[p];[b][p]paletteuse" -loop 0 "$OUT/nasa-ksc-swearing-in.gif"
+python3 - "$OUT/nasa-ksc-swearing-in.gif" <<'PY'
+import sys
+p = sys.argv[1]; b = bytearray(open(p, "rb").read())
+i = 13 + (3 * (1 << ((b[10] & 7) + 1)) if b[10] & 0x80 else 0)
+text = b"Filmed at Kennedy Space Center (Morph test comment)"
+b[i:i] = b"\x21\xfe" + bytes([len(text)]) + text + b"\x00"
+open(p, "wb").write(b)
+PY
+note "nasa-ksc-swearing-in.gif: first 3 s of the real video as GIF + a GIF comment extension"
 python3 - "$OUT" <<'PY'
 import gzip, shutil, sys, zipfile, os
 out = sys.argv[1]

@@ -55,8 +55,12 @@ run("compress-m4a-strong", "compress", f"{W}.m4a", ["--preset", "strong"])
 for f in ["mp4", "mov", "mkv"]:
     run(f"compress-{f}-balanced", "compress", f"{V}.{f}")
 run("compress-mp4-percent-50", "compress", f"{V}.mp4", ["--goal", "percentage", "--pct", "50"])
-run("compress-pdf-balanced", "compress", "nasa-plum-brook-factsheet-2008.pdf")
-run("compress-pdf-strong", "compress", "nasa-plum-brook-factsheet-2008.pdf", ["--preset", "strong"])
+# The USACE PDF is already optimised by Acrobat Distiller; macOS's PDF writer can't beat it → Morph must decline
+# rather than save a bigger “Compressed” file. The photo PDF (lossless image inside) must really shrink.
+run("compress-pdf-optimised-declines", "compress", "nasa-plum-brook-factsheet-2008.pdf", expect="decline")
+run("compress-pdf-photo-balanced", "compress", f"{J}.pdf")
+run("compress-pdf-photo-strong", "compress", f"{J}.pdf", ["--preset", "strong"])
+run("compress-png-balanced-keep-meta", "compress", f"{J}.png")
 
 # Metadata → Remove All
 for f in ["jpg", "png", "heic", "webp", "tiff"]:
@@ -67,7 +71,7 @@ for f in ["flac", "m4a"]:
 for f in ["mp4", "mov", "mkv"]:
     run(f"metadata-{f}", "removeMetadata", f"{V}.{f}")
 run("metadata-pdf", "removeMetadata", "nasa-plum-brook-factsheet-2008.pdf")
-run("metadata-gif", "removeMetadata", "sample.gif", corpus="synthetic")
+run("metadata-gif", "removeMetadata", "nasa-ksc-swearing-in.gif")
 
 # Crop Image
 run("crop-jpg-1x1", "cropImage", f"{J}.jpg", ["--aspect", "1:1"])

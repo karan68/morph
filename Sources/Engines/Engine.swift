@@ -83,6 +83,14 @@ public enum Engine {
             try await run(op, input: input, output: tmp, context: context)
             try context.checkCancelled()
             guard FileManager.default.fileExists(atPath: tmp.path) else { throw JobFailure("The engine produced no output.") }
+            if case .tool("compress", _) = op {
+                let before = (try? input.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                let after = (try? tmp.resourceValues(forKeys: [.fileSizeKey]).fileSize) ?? 0
+                if after >= before {
+                    throw JobFailure("“\(input.lastPathComponent)” is already well compressed — Morph couldn't make it smaller with these settings. The original is unchanged.",
+                                     details: "Result would have been \(after) bytes (original \(before) bytes).")
+                }
+            }
             try SafeWrite.commit(tmp, to: dest)
             return dest
         } catch {

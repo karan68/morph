@@ -229,7 +229,22 @@ public enum ImageEngine {
     }
 
     /// Produces compressed bytes for `input` per options (used for both the estimate and the real write).
+    /// PNG/WebP encoders can't take metadata, so with “Keep camera & date info” the source's EXIF/XMP/colour
+    /// chunks are carried over afterwards (and room is left for them when aiming at a target size).
     public static func compressedData(_ input: URL, options: CompressOptions, context: JobContext?) async throws -> Data {
+        let fmt = Formats.format(of: input) ?? "jpg"
+        guard options.keepMetadata, fmt == "png" || fmt == "webp", let source = try? Data(contentsOf: input) else {
+            return try await compressedPixels(input, options: options, context: context)
+        }
+        var o = options
+        let overhead = Int64(fmt == "png" ? MetadataCarry.pngMetadataBytes(source) : MetadataCarry.webpMetadataBytes(source))
+        let original = Int64(source.count)
+        if let t = options.targetSize(original: original) { o.goal = .targetSize; o.targetBytes = max(1, t - overhead) }
+        let data = try await compressedPixels(input, options: o, context: context)
+        return fmt == "png" ? MetadataCarry.png(from: source, into: data) : MetadataCarry.webp(from: source, into: data)
+    }
+
+    static func compressedPixels(_ input: URL, options: CompressOptions, context: JobContext?) async throws -> Data {
         let fmt = Formats.format(of: input) ?? "jpg"
         let originalSize = (try? FileManager.default.attributesOfItem(atPath: input.path)[.size] as? NSNumber)?.int64Value ?? 0
         let d = try await decode(input)

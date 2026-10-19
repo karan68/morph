@@ -64,7 +64,11 @@ DESC_TAGS = re.compile(r"^(GPS.*|Make|Model|SerialNumber|InternalSerialNumber|Le
                        r"Software|Artist|Copyright|UserComment|ImageDescription|Title|Author|Creator|Producer|Subject|Keywords|"
                        r"Comment|Album|AlbumArtist|Band|Genre|Year|Picture.*|CoverArt|Description|Encoder|EncodedBy|"
                        r"EncoderSettings|CreatorTool|MetadataDate|Location.*|Owner.*|CameraSerialNumber)$")
-DESC_GROUP = re.compile(r"^(GPS|XMP.*|IPTC|MakerNotes|Panasonic|ID3.*|Vorbis|ItemList|UserData|RIFF|Keys)$")
+DESC_GROUP = re.compile(r"^(GPS|XMP.*|IPTC|MakerNotes|Panasonic|ID3.*|Vorbis|ItemList|UserData|Keys)$")
+# Structural / generic entries that aren't about a person, place, device or content.
+NOT_PERSONAL = re.compile(r"^(Vendor|Format|PDFVersion|Linearized|PageCount|TaggedPDF|ImageWidth|ImageHeight|.*Flags|VP8Version|"
+                          r"HorizontalScale|VerticalScale|XMPToolkit)$")
+ZERO_DATE = re.compile(r"^0000[:\-]00[:\-]00")
 STRUCTURAL = re.compile(r"^(File|System|Composite|ExifTool|ICC.*|JFIF|PNG|PNG-pHYs|Matroska|QuickTime|Track\d*|Video|Audio|MPEG|FLAC|RIFF-fmt)$")
 
 def exif(path):
@@ -78,8 +82,23 @@ def descriptive(meta):
         if ":" not in k or v in ("", None): continue
         g, t = k.split(":", 1)
         if STRUCTURAL.match(g) and not DESC_TAGS.match(t): continue
+        if NOT_PERSONAL.match(t) or ZERO_DATE.match(str(v)): continue
         if DESC_GROUP.match(g) or DESC_TAGS.match(t): out[k] = str(v)[:60]
     return out
+
+ALWAYS_PERSONAL = re.compile(r"^(GPS.*|Make|Model|SerialNumber|InternalSerialNumber|CameraSerialNumber|Lens(Model|ID|Make)?|Owner.*|"
+                             r"Artist|Author|Creator|Title|Comment|Album|AlbumArtist|Description|ImageDescription|UserComment|Picture.*|CoverArt)$")
+
+def left_from_original(mi, mo):
+    """Descriptive tags in the output that came from the original (same value) or are always personal.
+    Anything else (e.g. a new Producer/creation date written by macOS's PDF writer) is reported separately."""
+    vals = {str(v).strip() for v in mi.values() if len(str(v).strip()) >= 3}
+    from_orig, added = {}, {}
+    for k, v in descriptive(mo).items():
+        t = k.split(":", 1)[-1]
+        if str(v).strip() in vals or ALWAYS_PERSONAL.match(t): from_orig[k] = v
+        else: added[k] = v
+    return from_orig, added
 
 def has_gps(meta): return any(k.split(":", 1)[-1].startswith("GPSLatitude") for k in meta)
 
@@ -143,6 +162,25 @@ def correlation(a, b):
         d = np.linalg.norm(x) * np.linalg.norm(y)
         if d > 0: best = max(best, float(np.dot(x, y) / d))
     return best
+
+def envelope(sig, rate=8000, win=0.02):
+    n = int(rate * win)
+    m = len(sig) // n
+    return np.sqrt(np.mean(sig[:m * n].reshape(m, n) ** 2, axis=1))
+
+def envelope_corr(a, b):
+    """Correlation of 20 ms loudness contours (robust to the phase changes lossy codecs make)."""
+    ea, eb = envelope(a), envelope(b)
+    best = 0.0
+    for lag in range(-15, 16):
+        x = ea[max(0, lag):]; y = eb[max(0, -lag):]; m = min(len(x), len(y))
+        if m > 10:
+            x, y = x[:m] - x[:m].mean(), y[:m] - y[:m].mean(); d = np.linalg.norm(x) * np.linalg.norm(y)
+            if d > 0: best = max(best, float(np.dot(x, y) / d))
+    return best
+
+def decoded_seconds(path):
+    return len(pcm(path, 8000, True, "s16le")) / 8000.0
 
 def luma_frames(path, w, h, n=90, start=None):
     cmd = ["ffmpeg", "-hide_banner", "-nostdin", "-v", "error"]
@@ -250,8 +288,8 @@ def check_compress(c, inp, out):
         k.add("lossless (sample-exact)", len(a) == len(b) and np.array_equal(a, b), f"{len(b):,} samples identical")
     elif fin in ("mp3", "m4a"):
         a, b = pcm(inp, 8000, True, "s16le"), pcm(out, 8000, True, "s16le")
-        r = correlation(a, b); di, do = duration(inp), duration(out)
-        k.add("same sound", r >= 0.9 and abs(di - do) <= 0.1, f"correlation {r:.3f} (≥0.9) · {do:.2f}s (src {di:.2f}s)")
+        r = envelope_corr(a, b); di, do = len(a) / 8000, len(b) / 8000
+        k.add("same sound", r >= 0.95 and abs(di - do) <= 0.1, f"loudness-contour correlation {r:.3f} (≥0.95) · {do:.2f}s (src {di:.2f}s)")
     elif fin in ("mp4", "mov", "mkv"):
         ii, io_ = probe(inp), probe(out)
         vi, vo = streams(ii, "video")[0], streams(io_, "video")[0]
@@ -259,8 +297,8 @@ def check_compress(c, inp, out):
         w, h = int(vo["width"]), int(vo["height"])
         p, off = aligned_psnr(luma_frames(inp, w, h), luma_frames(out, w, h))
         k.add("same picture", p >= 30, f"luma PSNR {p:.1f} dB (≥30, offset {off:+d})")
-        r = correlation(pcm(inp, 8000, True, "s16le"), pcm(out, 8000, True, "s16le"))
-        k.add("same soundtrack", r >= 0.9, f"correlation {r:.3f}")
+        r = envelope_corr(pcm(inp, 8000, True, "s16le"), pcm(out, 8000, True, "s16le"))
+        k.add("same soundtrack", r >= 0.95, f"loudness-contour correlation {r:.3f} (≥0.95)")
     return k
 
 def check_metadata(c, inp, out):
@@ -269,7 +307,9 @@ def check_metadata(c, inp, out):
     di, do = descriptive(mi), descriptive(mo)
     fin = sniff(inp)
     k.add("input had metadata", len(di) > 0, f"{len(di)} tags e.g. {', '.join(list(di)[:4])}")
-    k.add("output has none", len(do) == 0, ("left: " + ", ".join(f"{a}={b}" for a, b in list(do.items())[:5])) if do else "")
+    orig, added = left_from_original(mi, mo)
+    k.add("nothing from the original left", not orig, ("left: " + ", ".join(f"{a}={b}" for a, b in list(orig.items())[:5])) if orig else "")
+    if added: k.add("note: written by the OS writer, not from your file", True, ", ".join(f"{a}={b}" for a, b in added.items()))
     if fin in ("jpg", "png", "webp", "gif"):
         same = np.array_equal(decode_image(inp, orient=False), decode_image(out, orient=False))
         k.add("pixels identical", same, "lossless strip")
@@ -279,8 +319,9 @@ def check_metadata(c, inp, out):
     elif fin == "pdf":
         k.add("same pages + text", pdf_pages(out) == pdf_pages(inp) and pdf_text(out) == pdf_text(inp))
         info = pdf_info(out)
-        left = {x: info[x] for x in ("Title", "Author", "Creator", "Producer", "Subject", "Keywords") if info.get(x)}
-        k.add("PDF Info empty", not left, ", ".join(f"{a}={b}" for a, b in left.items()))
+        ii = pdf_info(inp)
+        left = {x: info[x] for x in ("Title", "Author", "Creator", "Producer", "Subject", "Keywords") if info.get(x) and info.get(x) == ii.get(x)}
+        k.add("PDF Info: no original values", not left, ", ".join(f"{a}={b}" for a, b in left.items()))
     else:
         for kind, sel in (("audio", "0:a"), ("video", "0:V")):
             hi = packet_hashes(inp, sel) if streams(probe(inp), kind) else []
@@ -327,8 +368,10 @@ def check_trim(c, inp, out):
         s, e, d = c["autoSilence"]
     else:
         s, e = opt(o, "--start", float), opt(o, "--end", float)
-    want = e - s; do = duration(out)
-    tol = 0.12 if fin in ("mp3", "m4a", "mp4", "mov", "mkv") else 0.02
+    want = e - s
+    # Audio: what actually plays (decoded), not the container's packet span (AAC carries hidden pre-roll).
+    do = decoded_seconds(out) if fin in ("mp3", "m4a", "wav", "flac") else duration(out)
+    tol = 0.12 if fin in ("mp4", "mov", "mkv") else 0.06 if fin in ("mp3", "m4a") else 0.02
     k.add("duration", abs(do - want) <= tol, f"{do:.3f}s (want {want:.3f}s ±{tol})")
     if fin in ("wav", "flac"):
         a, b = pcm(inp), pcm(out)
@@ -403,6 +446,13 @@ rows = []
 for c in cases:
     if c.get("skipped"): rows.append({"id": c["id"], "tool": c["tool"], "ok": False, "summary": "SKIPPED " + c["skipped"], "control": None}); continue
     ins = [os.path.join(RUN, x) for x in c["inputs"]]; outs = [os.path.join(RUN, x) for x in c["outputs"]]
+    if c["expect"] == "decline":
+        made = [f for f in os.listdir(os.path.dirname(ins[0])) if "Compressed" in f]
+        msg = (c["stderr"].strip().splitlines() or [""])[0]
+        ok = c["exit"] != 0 and not made and "already well compressed" in c["stderr"] and os.path.getsize(ins[0]) > 0
+        rows.append({"id": c["id"], "tool": c["tool"], "ok": ok, "control": None,
+                     "summary": ("✓ declined, no bigger file written · " if ok else f"✗ expected a refusal, got exit {c['exit']} files {made} · ") + msg[:150]})
+        print(("PASS " if ok else "FAIL ") + c["id"], flush=True); continue
     if c["expect"] == "refuse":
         escaped = [os.path.join(r, f) for r, _, fs in os.walk(RUN) for f in fs if f == "ESCAPED-by-morph-test.txt"]
         ok = not escaped
