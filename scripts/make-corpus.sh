@@ -17,8 +17,15 @@ q -i "$C/sample.png" "$C/sample.bmp"
 q -i "$C/sample.png" -c:v tiff "$C/sample.tiff"
 q -i "$C/sample.png" -c:v libwebp -quality 85 "$C/sample.webp"
 for f in heic avif; do
-  if out=$("$CLI" convert "$C/sample.png" "$f" 2>/dev/null); then :; else note "sample.$f: this macOS can't write $f (skipped as input)"; fi
+  if out=$("$CLI" convert "$C/sample.png" "$f" 2>/dev/null); then :; else note "sample.$f: this macOS can't write $f"; fi
 done
+# AVIF input fixture when this macOS can't encode AVIF: Kodak test image from libavif's test data
+# ("released by the Eastman Kodak Company for unrestricted usage" per libavif tests/data/README.md), pinned.
+if [ ! -f "$C/sample.avif" ]; then
+  curl -fsSL --retry 3 -o "$C/sample.avif" https://raw.githubusercontent.com/AOMediaCodec/libavif/v1.1.1/tests/data/io/kodim03_yuv420_8bpc.avif
+  echo "e69c973a3ddf635412c9a0c6cda66798102d0030303614873b337f658983ef5d  $C/sample.avif" | shasum -a 256 -c - >/dev/null
+  note "sample.avif: pinned libavif test image (kodim03, 768x512) used as AVIF input"
+fi
 cat > "$C/sample.svg" <<'EOF'
 <svg xmlns="http://www.w3.org/2000/svg" width="200" height="120" viewBox="0 0 200 120">
   <rect x="10" y="10" width="180" height="100" rx="18" fill="#5b47f5"/>
@@ -27,9 +34,32 @@ cat > "$C/sample.svg" <<'EOF'
 EOF
 # Tagged copies for the Metadata tool (EXIF/GPS/TIFF/IPTC containing "MorphSecret").
 mkdir -p "$C/tagged"
-for f in jpg png tiff heic webp; do
+for f in jpg png tiff heic; do
   [ -f "$C/sample.$f" ] && "$CLI" tag-image "$C/sample.$f" "$C/tagged/tagged.$f" 2>/dev/null || note "tagged.$f: ImageIO couldn't write tags"
 done
+# ImageIO can't write WebP: add EXIF (ImageDescription) + XMP chunks containing "MorphSecret" at the RIFF level.
+python3 - "$C/sample.webp" "$C/tagged/tagged.webp" <<'PY'
+import struct, sys
+d = open(sys.argv[1], "rb").read()
+assert d[:4] == b"RIFF" and d[8:12] == b"WEBP"
+chunks, i = [], 12
+while i + 8 <= len(d):
+    n = struct.unpack("<I", d[i + 4:i + 8])[0]
+    chunks.append([d[i:i + 4], bytearray(d[i + 8:i + 8 + n])]); i += 8 + n + (n & 1)
+if not any(c[0] == b"VP8X" for c in chunks):
+    vp8 = next(c[1] for c in chunks if c[0] == b"VP8 ")
+    w = struct.unpack("<H", vp8[6:8])[0] & 0x3FFF; h = struct.unpack("<H", vp8[8:10])[0] & 0x3FFF
+    chunks.insert(0, [b"VP8X", bytearray([0, 0, 0, 0]) + (w - 1).to_bytes(3, "little") + (h - 1).to_bytes(3, "little")])
+vp8x = next(c for c in chunks if c[0] == b"VP8X"); vp8x[1][0] |= 0x0C
+desc = b"MorphSecret\0"
+tiff = b"II*\0" + struct.pack("<I", 8) + struct.pack("<H", 1) + struct.pack("<HHII", 0x010E, 2, len(desc), 26) + struct.pack("<I", 0) + desc
+chunks.append([b"EXIF", bytearray(tiff)])
+chunks.append([b"XMP ", bytearray(b'<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"><rdf:Description xmlns:dc="http://purl.org/dc/elements/1.1/" dc:creator="MorphSecret"/></rdf:RDF></x:xmpmeta>')])
+body = b"WEBP"
+for cc, p in chunks:
+    body += cc + struct.pack("<I", len(p)) + bytes(p) + (b"\0" if len(p) & 1 else b"")
+open(sys.argv[2], "wb").write(b"RIFF" + struct.pack("<I", len(body)) + body)
+PY
 
 # Audio: 3 s stereo 44.1 kHz, title tag "MorphSecret"
 A=(-f lavfi -i "sine=frequency=440:duration=3:sample_rate=44100" -ac 2 -metadata title=MorphSecret)
