@@ -37,6 +37,20 @@ public final class JobContext: @unchecked Sendable {
         if isCancelled { throw JobCancelled() }
     }
 
+    /// A context for item `index` of `count` in a batch: maps 0…1 into the item's slice and shares cancellation.
+    public func child(index: Int, count: Int, item: String) -> JobContext {
+        let n = Double(max(1, count)), i = Double(index)
+        let c = JobContext { [weak self] f, _ in self?.report((i + f) / n, item: item) }
+        onCancel { [weak c] in c?.cancel() }
+        report(i / n, item: item)
+        return c
+    }
+
+    /// Public initializer for callers outside a JobQueue (CLI, tests).
+    public static func standalone(onProgress: @escaping (Double) -> Void = { _ in }) -> JobContext {
+        JobContext { f, _ in onProgress(f) }
+    }
+
     func cancel() {
         lock.lock()
         guard !_cancelled else { lock.unlock(); return }
@@ -48,7 +62,7 @@ public final class JobContext: @unchecked Sendable {
     }
 }
 
-public struct JobCancelled: Error {}
+public struct JobCancelled: Error { public init() {} }
 
 /// A failure with a plain-language message plus an engine log for "Details" (spec §4.3 "Errors").
 public struct JobFailure: Error, LocalizedError {
