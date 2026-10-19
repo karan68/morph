@@ -126,6 +126,38 @@ jobs:
             --notes-file docs/RELEASE-NOTES.md \
             "dist/Morph-$V.dmg" "dist/Morph-$V.dmg.sha256" dist/golden-matrix-report.md dist/self-test.json "rel/Morph-$V-third-party-sources.zip"
 
+  matrix-macos26:
+    name: Golden matrix on macOS 26 (all 174 paths incl. AVIF output)
+    needs: build
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/cache/restore@v4
+        with:
+          path: vendor-out
+          key: deps-macos13-arm64-${{ hashFiles('scripts/build-deps.sh', 'scripts/deps-versions.env') }}
+          fail-on-cache-miss: true
+      - uses: actions/download-artifact@v4
+        with: { name: morph-cli, path: probe }
+      - name: Corpus + golden matrix (network denied by the OS)
+        env:
+          MORPH_TOOLS_DIR: ${{ github.workspace }}/vendor-out/Helpers
+        run: |
+          chmod +x probe/MorphCLI && sw_vers
+          scripts/make-corpus.sh matrix-out/corpus "$PWD/probe/MorphCLI" vendor-out/sources/libarchive-3.7.7.tar.xz
+          PROFILE='(version 1)(allow default)(deny network*)'
+          if sandbox-exec -p "$PROFILE" curl -sS -m 10 -o /dev/null https://www.apple.com 2>/dev/null; then echo "profile did not block network" >&2; exit 1; fi
+          set +e
+          sandbox-exec -p "$PROFILE" python3 scripts/run-matrix.py "$PWD/probe/MorphCLI" matrix-out/corpus matrix-out/run
+          rc=$?
+          cat matrix-out/run/report.md >> "$GITHUB_STEP_SUMMARY"
+          exit $rc
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: golden-matrix-macos26
+          path: matrix-out/run/report.md
+
   os-probe:
     name: ImageIO capabilities on ${{ matrix.os }} (spec R5)
     needs: build
